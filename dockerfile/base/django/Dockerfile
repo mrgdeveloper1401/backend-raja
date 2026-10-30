@@ -44,7 +44,14 @@ RUN cp /dev/null /etc/apk/repositories && \
     apk add --no-cache \
         bash \
         curl \
-        libpq \
+        gcc \
+        python3-dev \
+        musl-dev \
+        libpq-dev \
+        linux-headers \
+        build-base \
+        rust \
+        cargo \
     && pip config --user set global.index-url https://mirror-pypi.runflare.com/simple \
     && pip config --user set global.trusted-host mirror-pypi.runflare.com \
     && pip install --upgrade pip
