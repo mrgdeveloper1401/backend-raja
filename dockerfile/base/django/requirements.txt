@@ -1,0 +1,2 @@
+django-json-widget==2.1.1
+django-bolt==0.12.0

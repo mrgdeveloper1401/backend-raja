@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 from pathlib import Path
 
 from decouple import config, Csv
+from kombu import Queue
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     "apps.ticket",
     "apps.monitoring",
     "django.contrib.postgres",
+    "django_json_widget",
 ]
 
 MIDDLEWARE = [
@@ -153,3 +155,112 @@ if DEBUG:
 # jwt token
 ACCESS_TOKEN_EXPIRE = 60 * 60
 REFRESH_TOKEN_EXPIRE = 60 * 60 * 24 * 30
+
+if DEBUG:
+    INSTALLED_APPS.append("debug_toolbar")
+    MIDDLEWARE.append("debug_toolbar.middleware.DebugToolbarMiddleware")
+    INTERNAL_IPS = ["127.0.0.1"]
+
+USE_SSL_CONFIG = config("USE_SSL_CONFIG", cast=bool, default=False)
+if USE_SSL_CONFIG:
+    # Https/ssl settings
+    SECURE_SSL_REDIRECT = False  # redirect http request into https request
+    USE_X_FORWARDED_HOST = True  # use header x-forwarded-host
+    USE_X_FORWARDED_PORT = True  # use header x-forwarded-port
+
+    # HSTS settings
+    SECURE_HSTS_SECONDS = 31536000  # 1 year, hsts validity period
+    SECURE_HSTS_PRELOAD = True  #
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # active hsts into subdomain
+
+    # cookie
+    SESSION_COOKIE_SECURE = True  # session cookie only https
+    SESSION_COOKIE_DOMAIN = config(
+        "SESSION_COOKIE_DOMAIN", cast=str
+    )  # for example --> .example.com, domain cookie
+    SESSION_COOKIE_HTTPONLY = True  # prevent access with by javascript
+
+    # csrf
+    CSRF_COOKIE_SECURE = True  # send cookie csrf only https
+    CSRF_COOKIE_HTTPONLY = True  # csrf prevent access javascript
+    CSRF_COOKIE_SAMESITE = "Strict"  # Prevent cookie requests on cross-site requests
+    CSRF_COOKIE_DOMAIN = config(
+        "CSRF_COOKIE_DOMAIN", cast=str
+    )  # for example --> .example.com, domain csrf cookie
+    CSRF_COOKIE_AGE = 3600  # csrf cookie validity period
+
+    # Content Security Settings
+    SECURE_CONTENT_TYPE_NOSNIFF = True  # prevent mime sniffing
+    SECURE_BROWSER_XSS_FILTER = True  # active filter xss in browser
+    SECURE_REFERRER_POLICY = (
+        "strict-origin-when-cross-origin"  # control information  on source request
+    )
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+    # Frame & Clickjacking Protection
+    X_FRAME_OPTIONS = "DENY"  # prevent show iframe
+
+
+# cache session engine
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = config("SESSION_CACHE_ALIAS", cast=str, default="default")
+
+# cache config
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": config(
+            "REDIS_LOCATION", cast=str, default="redis://localhost:6381/2"
+        ),
+        "OPTIONS": {
+            "SERIALIZER": config(
+                "REDIS_DEFAULT_SERIALIZER",
+                cast=str,
+                default="django_redis.serializers.msgpack.MSGPackSerializer",
+            ),
+            "SOCKET_CONNECT_TIMEOUT": config(
+                "SOCKET_DEFAULT_CONNECT_TIMEOUT", default=5, cast=int
+            ),
+            "SOCKET_TIMEOUT": config("SOCKET_DEFAULT_TIMEOUT", default=10, cast=int),
+            "TIMEOUT": config(
+                "CACHE_DEFAULT_TIMEOUT", cast=int, default=1209600
+            ),  # fot two week
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {
+                "max_connections": config(
+                    "REDIS_MAX_CONNECTION", cast=int, default=15
+                ),  # Total: 5 workers × 15 = 75 connections maximum
+                "retry_on_timeout": config(
+                    "REDIS_DEFAULT_POOL_RETRY_TIMEOUT", default=True, cast=bool
+                ),
+                "health_check_interval": config(
+                    "REDIS_DEFAULT_HEALTH_CHECK_INTERVAL", default=True, cast=bool
+                ),
+                "socket_keepalive": config(
+                    "REDIS_DEFAULT_SOCKET_KEEPALIVE", default=True, cast=bool
+                ),
+            },
+        },
+    }
+}
+
+CELERY_WORKER_PREFETCH_MULTIPLIER = config(
+    "CELERY_WORKER_PREFETCH_MULTIPLIER", cast=int, default=1
+)
+CELERY_RESULT_BACKEND = config(
+    "CELERY_RESULT_BACKEND", cast=str, default="redis://localhost:6381/4"
+)  # نتیجه تسک در کجا ریخته شود
+CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6381/3")
+CELERY_TASK_ACKS_LATE = config("CELERY_ACKS_LATE", cast=bool, default=True)
+CELERY_RESULT_EXPIRES = config("CELERY_RESULT_EXPIRES", cast=int, default=86400)
+CELERY_TASK_TIME_LIMIT = config("CELERY_TASK_TIME_LIMIT", cast=int, default=30)
+CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=6)
+
+CELERY_TASK_QUEUES = (
+    Queue("one"),
+    Queue("two"),
+    Queue("three"),
+    Queue("four"),
+    Queue("five"),
+    Queue("sex"),
+)
