@@ -1,41 +1,35 @@
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    PermissionsMixin,
+    UserManager,
+)
 from django.db import models
+
+from apps.core.managers import SoftDeleteQuerySet
 from apps.core.models import TimestampMixin, SoftDeleteMixin
 
 
-class UserManager(BaseUserManager):
-    def create_user(self, phone, password=None, **extra_fields):
-        if not phone:
-            raise ValueError("Phone is required")
-        user = self.model(phone=phone, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, phone, password, **extra_fields):
-        extra_fields.setdefault("role", User.Role.ADMIN)
-        extra_fields.setdefault("is_staff", True)
-        extra_fields.setdefault("is_superuser", True)
-        return self.create_user(phone, password, **extra_fields)
+class CustomUserManager(UserManager):
+    def get_queryset(self):
+        return SoftDeleteQuerySet(self.model, using=self._db).alive()
 
 
 class User(AbstractBaseUser, PermissionsMixin, TimestampMixin, SoftDeleteMixin):
-    class Role(models.TextChoices):
-        CUSTOMER = "customer", "مشتری"
-        OPERATOR = "operator", "اپراتور"
-        ADMIN = "admin", "ادمین"
-
     phone = models.CharField(max_length=15, unique=True)
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
-    role = models.CharField(max_length=20, choices=Role.choices, default=Role.CUSTOMER)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    username = models.CharField(max_length=32, unique=True, blank=True, null=True)
+    email = models.EmailField(max_length=255, blank=True, null=True)
 
     USERNAME_FIELD = "phone"
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = (
+        "email",
+        "username",
+    )
 
-    objects = UserManager()
+    objects = CustomUserManager()
 
     class Meta:
         db_table = "accounts_users"

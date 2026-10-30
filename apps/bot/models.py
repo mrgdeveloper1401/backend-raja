@@ -43,8 +43,12 @@ class Worker(TimestampMixin, SoftDeleteMixin):
         RECOVERING = "recovering", "در حال بازیابی"
 
     order_id = models.BigIntegerField()  # ref to orders.Order
-    server = models.ForeignKey(Server, on_delete=models.SET_NULL, null=True, related_name="workers")
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.IDLE)
+    server = models.ForeignKey(
+        Server, on_delete=models.SET_NULL, null=True, related_name="workers"
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.IDLE
+    )
     celery_task_id = models.CharField(max_length=255, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
@@ -66,9 +70,13 @@ class BotSession(TimestampMixin, SoftDeleteMixin):
         EXPIRED = "expired", "منقضی"
         REFRESHING = "refreshing", "در حال تجدید"
 
-    server = models.ForeignKey(Server, on_delete=models.DO_NOTHING, related_name="bot_sessions")
+    server = models.ForeignKey(
+        Server, on_delete=models.DO_NOTHING, related_name="bot_sessions"
+    )
     cookies = models.JSONField(default=dict)  # سریال‌شده در Redis هم نگه داشته می‌شود
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.ACTIVE
+    )
     last_used_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
