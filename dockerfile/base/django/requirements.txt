@@ -8,4 +8,4 @@ httpx==0.28.1
 ipython==9.17.1
 msgpack==1.2.4
 python-decouple==3.8
-psycopg[c,pool]==3.3.6
+psycopg[c]

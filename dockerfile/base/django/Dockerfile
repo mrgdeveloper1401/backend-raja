@@ -1,63 +1,60 @@
 # =========================
-# Stage 1: Builder
+# Shared base
 # =========================
-FROM python:3.14-alpine AS builder
+FROM docker.arvancloud.ir/python:3.14-slim AS base
 
 WORKDIR /app
 
+
+# =========================
+# Stage 1: Builder
+# =========================
+FROM base AS builder
+
+#ENV PIP_INDEX_URL=https://mirror-pypi.runflare.com/simple
+
+# Build tools for psycopg[c].
+RUN apt update \
+    && apt install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 
-RUN cp /dev/null /etc/apk/repositories && \
-    echo "https://mirror.mobinhost.com/alpine/v3.22/main" >> /etc/apk/repositories && \
-    echo "https://mirror.mobinhost.com/alpine/v3.22/community" >> /etc/apk/repositories && \
-    apk update && \
-    apk upgrade && \
-    apk add --no-cache \
-        bash \
-        curl \
-        gcc \
-        python3-dev \
-        musl-dev \
-        libpq-dev \
-        linux-headers \
-        build-base \
-        rust \
-        cargo \
-    && pip config --user set global.index-url https://mirror-pypi.runflare.com/simple \
-    && pip config --user set global.trusted-host mirror-pypi.runflare.com \
-    && pip install --upgrade pip \
-    && pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+RUN python -m pip wheel \
+        --no-cache-dir \
+        --only-binary=django-bolt \
+        --wheel-dir=/wheels \
+        -r requirements.txt
 
 
 # =========================
 # Stage 2: Production
 # =========================
-FROM python:3.14-alpine AS production
+FROM base AS production
 
-WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-RUN cp /dev/null /etc/apk/repositories && \
-    echo "https://mirror.mobinhost.com/alpine/v3.22/main" >> /etc/apk/repositories && \
-    echo "https://mirror.mobinhost.com/alpine/v3.22/community" >> /etc/apk/repositories && \
-    apk update && \
-    apk upgrade && \
-    apk add --no-cache \
+RUN apt update \
+    && apt install -y --no-install-recommends \
         bash \
         curl \
-        gcc \
-        python3-dev \
-        musl-dev \
-        libpq-dev \
-        linux-headers \
-        build-base \
-        rust \
-        cargo \
-    && pip config --user set global.index-url https://mirror-pypi.runflare.com/simple \
-    && pip config --user set global.trusted-host mirror-pypi.runflare.com \
-    && pip install --upgrade pip
+        ca-certificates \
+        libpq5 \
+        libgcc-s1 \
+        libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /wheels /wheels
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt && \
-    rm -rf /wheels
+RUN python -m pip install \
+        --no-cache-dir \
+        --no-index \
+        --find-links=/wheels \
+        -r requirements.txt \
+    && python -m pip check \
+    && rm -rf /wheels

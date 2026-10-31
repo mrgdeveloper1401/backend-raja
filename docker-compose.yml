@@ -70,8 +70,6 @@ services:
     depends_on:
       app:
         condition: service_started
-      nextjs:
-        condition: service_started
     volumes:
       - static_files:/var/www/static
       - /etc/letsencrypt:/etc/letsencrypt:ro
@@ -98,7 +96,7 @@ services:
       dockerfile: dockerfile/prod/django/Dockerfile
     env_file:
       - env_folder/.env
-    entrypoint: "celery -A base worker -l INFO"
+    entrypoint: "celery -A core worker -l INFO"
     depends_on:
       app:
         condition: service_started
