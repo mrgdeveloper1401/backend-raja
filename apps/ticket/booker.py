@@ -296,8 +296,6 @@ class RajaBooker:
         except Exception as e:
             print(f"خطا در انتخاب بانک یا پرداخت نهایی: {e}")
 
-        await self.page.wait_for_timeout(5000)
-
         payment_url = self.page.url
         print(f"لینک درگاه نهایی: {payment_url}")
         await self._update_status(
