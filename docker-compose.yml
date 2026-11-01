@@ -102,6 +102,20 @@ services:
         condition: service_started
     mem_limit: 1024m
 
+  flower:
+    container_name: flower
+    restart: always
+    build:
+      context: .
+      dockerfile: dockerfile/prod/django/Dockerfile
+    env_file:
+      - env_folder/.env
+    entrypoint: "celery -A core flower"
+    depends_on:
+      celery:
+        condition: service_started
+    mem_limit: 512m
+
 volumes:
   postgres_data:
   static_files:
