@@ -36,3 +36,21 @@ class User(AbstractBaseUser, PermissionsMixin, TimestampMixin, SoftDeleteMixin):
 
     # def __str__(self):
     #     return f"{self.phone} ({self.role})"
+
+
+class RajaAccount(TimestampMixin):
+    """اطلاعات اکانت رجا برای ورود ربات"""
+
+    username = models.CharField(max_length=20, verbose_name="شماره همراه رجا")
+    password = models.CharField(max_length=100, verbose_name="رمز عبور رجا")
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+
+    # اینجا می‌تونیم سشن لاگین شده رو هم ذخیره کنیم
+    session_json = models.TextField(
+        blank=True, null=True, verbose_name="سشن ذخیره شده (JSON)"
+    )
+
+    class Meta:
+        db_table = "raja_accounts"
+        verbose_name = "اکانت رجا"
+        verbose_name_plural = "اکانت‌های رجا"

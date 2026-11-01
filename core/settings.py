@@ -43,7 +43,6 @@ INSTALLED_APPS = [
     "apps.user",
     "apps.bot",
     "apps.core",
-    "apps.payment",
     "apps.ticket",
     "apps.monitoring",
     "django.contrib.postgres",
@@ -149,7 +148,7 @@ MAILERS = {
 AUTH_USER_MODEL = "user.User"
 
 # cors
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', cast=Csv(), default=None)
+CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", cast=Csv(), default=None)
 CORS_USE_DEV = config("CORS_USE_DEV", cast=bool, default=False)
 if CORS_USE_DEV:
     CORS_ALLOWED_ORIGINS.append("http://localhost:3000")
@@ -256,13 +255,6 @@ CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6381/
 CELERY_TASK_ACKS_LATE = config("CELERY_ACKS_LATE", cast=bool, default=True)
 CELERY_RESULT_EXPIRES = config("CELERY_RESULT_EXPIRES", cast=int, default=86400)
 CELERY_TASK_TIME_LIMIT = config("CELERY_TASK_TIME_LIMIT", cast=int, default=30)
-CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=6)
+CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=2)
 
-CELERY_TASK_QUEUES = (
-    Queue("one"),
-    Queue("two"),
-    Queue("three"),
-    Queue("four"),
-    Queue("five"),
-    Queue("sex"),
-)
+CELERY_TASK_QUEUES = (Queue("booker"), Queue("celery"))

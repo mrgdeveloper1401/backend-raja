@@ -2,7 +2,7 @@ from django.db import models
 from apps.core.models import TimestampMixin, SoftDeleteMixin
 from django.utils.translation import gettext_lazy as _
 
-from apps.user.models import User
+from apps.user.models import RajaAccount
 
 
 class Passenger(TimestampMixin, SoftDeleteMixin):
@@ -10,9 +10,6 @@ class Passenger(TimestampMixin, SoftDeleteMixin):
         MALE = "male", "مرد"
         FEMALE = "female", "زن"
 
-    user = models.ForeignKey(
-        User, on_delete=models.DO_NOTHING, related_name="passengers"
-    )
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     national_id = models.CharField(max_length=10)
@@ -20,16 +17,20 @@ class Passenger(TimestampMixin, SoftDeleteMixin):
     birth_date = models.DateField(null=True, blank=True)
     phone = models.CharField(max_length=15)
 
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+
     class Meta:
         db_table = "passengers"
+        verbose_name = _("مسافر")
+        verbose_name_plural = _("مسافران")
 
 
 class Order(TimestampMixin, SoftDeleteMixin):
-    class Status(models.TextChoices):
-        PENDING = "pending", _("در انتظار پرداخت")
-        PAID = "paid", _("پرداخت شده")
-        BOOKED = "booked", _("رزرو قطعی در سامانه")
-        FAILED = "failed", _("شکست خورده")
+    class PassengerType(models.TextChoices):
+        MAN = "man", _("ویژه برادران")
+        WOMAN = "woman", _("ویژه خواهران")
+        NORMAL = "normal", _("مسافرین عادی")
 
     passenger = models.ForeignKey(
         Passenger,
@@ -37,36 +38,67 @@ class Order(TimestampMixin, SoftDeleteMixin):
         related_name="passenger_orders",
         db_index=False,
     )
-    origin = models.CharField(max_length=100)
-    destination = models.CharField(max_length=100)
-    travel_date = models.DateField()
-    status = models.CharField(
-        max_length=20, default=Status.PENDING, choices=Status.choices
+    origin = models.CharField(max_length=100, verbose_name="مبدا")
+    destination = models.CharField(max_length=100, verbose_name="مقصد")
+    travel_date = models.DateField(verbose_name="تاریخ سفر")
+    passenger_type = models.CharField(
+        max_length=20,
+        choices=PassengerType.choices,
+        default=PassengerType.NORMAL,
+        verbose_name="نوع بلیط",
     )
-    train_number = models.CharField(max_length=50, blank=True, null=True)  # شماره قطار
 
     class Meta:
         db_table = "orders"
+        verbose_name = _("سفارش")
+        verbose_name_plural = _("سفارش‌ها")
 
 
-# جدول میانی برای اتصال مسافران به یک سفارش همراه با نوع سهمیه/نرخ
 class OrderItem(TimestampMixin, SoftDeleteMixin):
-    class PassengerType(models.TextChoices):
-        MAN = "man", _("ویژه برادران")
-        WOMAN = "woman", _("ویژه خواهران")
-        NORMAL = "normal", _("مسافرین عادی")
+    """جدول واسط برای مسافران هر سفارش"""
 
-    order = models.ForeignKey(Order, on_delete=models.DO_NOTHING, related_name="items")
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     passenger = models.ForeignKey(
-        Passenger, on_delete=models.DO_NOTHING, related_name="order_items"
+        Passenger, on_delete=models.PROTECT, related_name="order_items"
     )
-    passenger_type = models.CharField(
-        max_length=20, default=PassengerType.NORMAL, choices=PassengerType.choices
-    )
-    is_adult = models.BooleanField(default=True)
-    price = models.DecimalField(
-        max_digits=12, decimal_places=0, default=0
-    )  # قیمت به ریال
+    is_adult = models.BooleanField(default=True, help_text=_("بزرگسال هست؟"))
 
     class Meta:
         db_table = "order_items"
+        verbose_name = "آیتم سفارش"
+        verbose_name_plural = "آیتم‌های سفارش"
+
+
+class Reservation(TimestampMixin, SoftDeleteMixin):
+    class ReservationStatus(models.TextChoices):
+        PENDING = "pending", _("انتظار")
+        MONITORING = "monitoring", _("در حال رصد")
+        BOOKING = "booking", _("در حال رزرو")
+        REDIRECT_GATEWAY = "redirect_gateway", _("هدایت به درگاه پرداخت")
+        SUCCESS = "success", _("موفق")
+        FAILED = "failed", _("ناموفق")
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="reservations",
+        verbose_name="سفارش",
+    )
+    raja_account = models.ForeignKey(
+        RajaAccount, on_delete=models.PROTECT, verbose_name="اکانت رجا"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=ReservationStatus.choices,
+        default=ReservationStatus.PENDING,
+        verbose_name="وضعیت",
+    )
+    payment_url = models.URLField(
+        blank=True, null=True, verbose_name="لینک درگاه پرداخت"
+    )
+    error_message = models.TextField(blank=True, null=True, verbose_name="پیام خطا")
+
+    class Meta:
+        db_table = "reservations"
+        verbose_name = "رزرو"
+        verbose_name_plural = "رزروها"

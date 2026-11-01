@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 
-from .models import User
+from .models import User, RajaAccount
 
 
 @admin.register(User)
@@ -59,3 +59,16 @@ class UserAdmin(BaseUserAdmin):
         ),
         (_("Important dates"), {"fields": ("last_login", "created_at", "updated_at")}),
     )
+
+
+@admin.register(RajaAccount)
+class RajaAccountAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "username",
+        "password",
+        "is_active",
+        "created_at",
+        "updated_at",
+    )
+    list_display_links = list_display

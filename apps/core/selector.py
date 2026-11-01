@@ -16,6 +16,12 @@ def station_selector():
             "IsExclusion": item["is_exclusion"],
         }
         for item in Station.objects.values(
-            "code", "name", "english_name", "tel_code", "group", "is_car_ticket", "is_exclusion"
+            "code",
+            "name",
+            "english_name",
+            "tel_code",
+            "group",
+            "is_car_ticket",
+            "is_exclusion",
         )
     ]

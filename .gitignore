@@ -11,3 +11,5 @@ wheels/
 env_folder
 .env
 .vscode
+raja_user_data
+staticfiles
