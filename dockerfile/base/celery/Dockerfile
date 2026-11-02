@@ -1,3 +1,4 @@
+# dockerfile/base/celery
 FROM py_raja
 
 WORKDIR /app

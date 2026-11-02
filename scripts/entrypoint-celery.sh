@@ -1,17 +1,23 @@
 #!/bin/bash
 set -e
 
-# ۱. ساخت مانیتور مجازی
+# ۱. پاکسازی فایل‌های قفل احتمالی از اجرای قبلی
+rm -f /tmp/.X99-lock
+
+# ۲. ساخت مانیتور مجازی
 Xvfb :99 -screen 0 1920x1080x24 &
 
-# ۲. اجرای یک Window Manager بسیار سبک برای جابجایی پنجره‌ها
+# ⚠️ مکث کوتاه برای اطمینان از بالا آمدن Xvfb
+sleep 5
+
+# ۳. اجرای یک Window Manager بسیار سبک برای جابجایی پنجره‌ها
 fluxbox &
 
-# ۳. اجرای سرور VNC سبک
+# ۴. اجرای سرور VNC سبک
 x11vnc -display :99 -forever -nopw -shared -rfbport 5900 &
 
-# ۴. وب‌سوکت noVNC برای مشاهده از طریق مرورگر اینترنت
+# ۵. وب‌سوکت noVNC برای مشاهده از طریق مرورگر اینترنت
 websockify --web=/usr/share/novnc 6080 localhost:5900 &
 
-# ۵. اجرای ورکر سلری با صف اختصاصی booker
+# ۶. اجرای ورکر سلری با صف اختصاصی booker
 exec celery -A core worker -l INFO
