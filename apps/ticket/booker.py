@@ -108,10 +108,39 @@ class RajaBooker:
                 await self.context.close()
 
     async def _check_login(self):
+        # ۱. ابتدا منتظر می‌مانیم تا کلاس مربوط به کاربر (app-user) لود شود
+        # این کلاس هم در حالت لاگین و هم غیر لاگین وجود دارد
         try:
-            await self.page.wait_for_selector("#dropdownForm1", timeout=5000)
-            return False
+            await self.page.wait_for_selector("app-user", timeout=5000)
         except:
+            pass  # اگر پیدا نشد، ادامه می‌دهیم
+
+        # ۲. چک می‌کنیم که آیا دکمه ورود/عضویت وجود دارد یا خیر
+        login_btn = self.page.locator("#dropdownForm1")
+
+        # ۳. چک می‌کنیم که آیا نام کاربری (که در حالت لاگین نمایش داده می‌شود) وجود دارد یا خیر
+        # طبق HTMLی که فرستادی، نام کاربری داخل یک span قرار دارد
+        user_name_element = self.page.locator("app-user span").filter(has_not_text="ورود / عضویت")
+
+        # اگر دکمه ورود وجود نداشت، یعنی ما لاگین هستیم
+        if await login_btn.count() == 0:
+            print("دکمه ورود پیدا نشد. احتمالا لاگین هستیم.")
+            return True
+
+        # اگر دکمه ورود وجود داشت، چک می‌کنیم که آیا نام کاربری هم نمایش داده می‌شود یا خیر
+        # (گاهی اوقات دکمه ورود در DOM می‌ماند اما مخفی می‌شود)
+        if await login_btn.is_visible():
+            # چک می‌کنیم که آیا نام کاربری مثل "پیمان" در صفحه هست یا خیر
+            # این بخش ممکن است نیاز به کالیبره داشته باشد
+            user_text = await self.page.locator("app-user").inner_text()
+            if "ورود / عضویت" in user_text:
+                print("کاربر لاگین نیست.")
+                return False
+            else:
+                print(f"کاربر لاگین است: {user_text}")
+                return True
+        else:
+            print("دکمه ورود مخفی است. احتمالا لاگین هستیم.")
             return True
 
     async def _do_login(self):
@@ -274,30 +303,45 @@ class RajaBooker:
                 Reservation.ReservationStatus.PENDING,
                 error_message="نیاز به حل دستی کپچا"
             )
+            # ربات اینجا متوقف میشه تا شما کپچا رو حل کنید و روی Resume بزنید
             await self.page.pause()
         except:
             print("کپچا ظاهر نشد. ادامه...")
 
-        await self.page.wait_for_load_state("domcontentloaded")
-
         print("در حال انتخاب بانک و رفتن به درگاه اصلی...")
+
+        # تلاش برای پیدا کردن بانک (با ۳ بار تلاش مجدد)
+        for attempt in range(3):
+            try:
+                bank_btn = self.page.locator("div.DivBank").first
+                await bank_btn.wait_for(state="visible", timeout=10000)
+                await bank_btn.click()
+                print("بانک انتخاب شد.")
+                break
+            except Exception as e:
+                print(f"تلاش {attempt + 1} برای پیدا کردن بانک ناموفق بود: {e}")
+                await asyncio.sleep(2)
+
+        # کلیک روی پرداخت نهایی
         try:
-            bank_btn = self.page.locator("div.DivBank").first
-            await bank_btn.click()
-            print("بانک انتخاب شد.")
-
             final_payment_btn = self.page.locator("button.btn-success:has-text('پرداخت')")
-            if await final_payment_btn.is_visible():
-                await final_payment_btn.click()
-                print("کلیک روی پرداخت نهایی انجام شد.")
-            else:
-                print("دکمه پرداخت نهایی پیدا نشد.")
-
+            await final_payment_btn.wait_for(state="visible", timeout=10000)
+            await final_payment_btn.click()
+            print("کلیک روی پرداخت نهایی انجام شد.")
         except Exception as e:
-            print(f"خطا در انتخاب بانک یا پرداخت نهایی: {e}")
+            print(f"دکمه پرداخت نهایی پیدا نشد یا خطا داد: {e}")
+
+        # صبر میکنیم تا URL تغییر کند (به درگاه بانک منتقل شود)
+        await asyncio.sleep(5)
 
         payment_url = self.page.url
         print(f"لینک درگاه نهایی: {payment_url}")
         await self._update_status(
             Reservation.ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
         )
+
+        # ⛔️ مهم‌ترین بخش: توقف نهایی!
+        # اینجا ربات دوباره متوقف میشه. شما می‌تونید برید تو مرورگر، پرداخت رو انجام بدید یا هر کار دیگه‌ای بکنید.
+        # مرورگر بسته نمیشه تا وقتی که شما پنجره رو ببندید یا روی Resume بزنید.
+        print("به درگاه بانک منتقل شدیم. ربات متوقف شد. برای بستن مرورگر یا ادامه، دستی اقدام کنید.")
+        await self.page.pause()

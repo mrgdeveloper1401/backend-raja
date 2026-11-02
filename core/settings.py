@@ -252,9 +252,9 @@ CELERY_RESULT_BACKEND = config(
     "CELERY_RESULT_BACKEND", cast=str, default="redis://localhost:6381/4"
 )  # نتیجه تسک در کجا ریخته شود
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6381/3")
-CELERY_TASK_ACKS_LATE = config("CELERY_ACKS_LATE", cast=bool, default=True)
+CELERY_TASK_ACKS_LATE = config("CELERY_ACKS_LATE", cast=bool, default=False)
 CELERY_RESULT_EXPIRES = config("CELERY_RESULT_EXPIRES", cast=int, default=86400)
 CELERY_TASK_TIME_LIMIT = config("CELERY_TASK_TIME_LIMIT", cast=int, default=30)
 CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=2)
-
+# CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_TASK_QUEUES = (Queue("booker"), Queue("celery"))
