@@ -40,7 +40,7 @@ def process_reservation_task(reservation_id):
         passengers=passengers_data,
         headless=False,  # در سرور True بشه
         reservation_id=reservation.id,  # آیدی رزرو رو پاس می‌دیم تا وضعیتش رو آپدیت کنه
-        travel_phone=reservation.order.passenger.phone
+        travel_phone=reservation.order.passenger.phone,
     )
 
     # چون سلری سینک هست، یه لوپ جدید می‌سازیم
