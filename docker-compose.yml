@@ -91,6 +91,7 @@ services:
   celery:
     container_name: celery
     restart: always
+    entrypoint: "celery -A core worker -l INFO"
     build:
       context: .
       dockerfile: dockerfile/prod/celery/Dockerfile
