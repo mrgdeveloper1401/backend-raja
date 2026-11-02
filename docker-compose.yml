@@ -93,14 +93,18 @@ services:
     restart: always
     build:
       context: .
-      dockerfile: dockerfile/prod/django/Dockerfile
+      dockerfile: dockerfile/prod/celery/Dockerfile
     env_file:
       - env_folder/.env
-    entrypoint: "celery -A core worker -l INFO"
+    environment:
+      - DISPLAY=:99
+    ports:
+      - "6080:6080"
     depends_on:
       app:
         condition: service_started
-    mem_limit: 1536m
+    mem_limit: 2048m
+    shm_size: "1gb"
 
   flower:
     container_name: flower
