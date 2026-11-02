@@ -14,7 +14,10 @@ sleep 5
 fluxbox &
 
 # ۴. اجرای سرور VNC سبک
-x11vnc -display :99 -forever -nopw -shared -rfbport 5900 &
+x11vnc -display :99 -forever -nopw -shared -rfbport 5900 \
+       -noxdamage \
+       -noscr \
+       -noxfixes &
 
 # ۵. وب‌سوکت noVNC برای مشاهده از طریق مرورگر اینترنت
 websockify --web=/usr/share/novnc 6080 localhost:5900 &
