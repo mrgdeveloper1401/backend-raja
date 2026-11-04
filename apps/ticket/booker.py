@@ -115,7 +115,6 @@ class RajaBooker:
 
                 # ⛔️ اینجا ربات متوقف میشه تا کاربر پرداخت کنه
                 print("به درگاه پرداخت رسیدیم. منتظر اقدام کاربر...")
-                await self.page.pause()
 
         except Exception as e:
             error_trace = traceback.format_exc()
@@ -129,42 +128,25 @@ class RajaBooker:
                 await self.context.close()
 
     async def _check_login(self):
-        # ۱. ابتدا منتظر می‌مانیم تا کلاس مربوط به کاربر (app-user) لود شود
-        # این کلاس هم در حالت لاگین و هم غیر لاگین وجود دارد
+        # چک می‌کنیم که آیا نام کاربری در صفحه وجود دارد یا خیر
         try:
+            # منتظر می‌مانیم تا المان app-user کاملاً لود شود
             await self.page.wait_for_selector("app-user", timeout=5000)
-        except:
-            pass  # اگر پیدا نشد، ادامه می‌دهیم
 
-        # ۲. چک می‌کنیم که آیا دکمه ورود/عضویت وجود دارد یا خیر
-        login_btn = self.page.locator("#dropdownForm1")
+            # گرفتن متن داخل app-user
+            user_element = self.page.locator("app-user")
+            text_content = await user_element.inner_text()
 
-        # ۳. چک می‌کنیم که آیا نام کاربری (که در حالت لاگین نمایش داده می‌شود) وجود دارد یا خیر
-        # طبق HTMLی که فرستادی، نام کاربری داخل یک span قرار دارد
-        user_name_element = self.page.locator("app-user span").filter(
-            has_not_text="ورود / عضویت"
-        )
-
-        # اگر دکمه ورود وجود نداشت، یعنی ما لاگین هستیم
-        if await login_btn.count() == 0:
-            print("دکمه ورود پیدا نشد. احتمالا لاگین هستیم.")
-            return True
-
-        # اگر دکمه ورود وجود داشت، چک می‌کنیم که آیا نام کاربری هم نمایش داده می‌شود یا خیر
-        # (گاهی اوقات دکمه ورود در DOM می‌ماند اما مخفی می‌شود)
-        if await login_btn.is_visible():
-            # چک می‌کنیم که آیا نام کاربری مثل "پیمان" در صفحه هست یا خیر
-            # این بخش ممکن است نیاز به کالیبره داشته باشد
-            user_text = await self.page.locator("app-user").inner_text()
-            if "ورود / عضویت" in user_text:
-                print("کاربر لاگین نیست.")
+            if "ورود / عضویت" in text_content:
+                print("دکمه ورود/عضویت در صفحه هست. لاگین نیستیم.")
                 return False
             else:
-                print(f"کاربر لاگین است: {user_text}")
+                print(f"کاربر لاگین است. نام: {text_content.strip()}")
                 return True
-        else:
-            print("دکمه ورود مخفی است. احتمالا لاگین هستیم.")
-            return True
+        except Exception as e:
+            print(f"خطا در بررسی لاگین: {e}")
+            # در صورت خطا، فرض می‌کنیم لاگین نیستیم تا لاگین انجام شود
+            return False
 
     async def _do_login(self):
         print("کلیک روی دکمه ورود/عضویت...")
@@ -375,7 +357,7 @@ class RajaBooker:
             print(f"دکمه پرداخت نهایی پیدا نشد یا خطا داد: {e}")
 
         # صبر میکنیم تا URL تغییر کند (به درگاه بانک منتقل شود)
-        await asyncio.sleep(5)
+        # await asyncio.sleep(5)
 
         payment_url = self.page.url
         print(f"لینک درگاه نهایی: {payment_url}")
