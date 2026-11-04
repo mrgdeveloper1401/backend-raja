@@ -12,7 +12,9 @@ from apps.ticket.schema import (
     PassengerDetailSchema,
     PassengerCreateSchema,
     PassengerUpdateSchema,
-    PassengerNewDetailSchema, OrderCreateSchema,
+    PassengerNewDetailSchema,
+    OrderCreateSchema,
+    DashboardChartStatusSchema,
 )
 from apps.ticket.selector import (
     dashboard_status_selector,
@@ -22,8 +24,12 @@ from apps.ticket.selector import (
     update_passenger_selector,
     delete_passenger_selector,
     get_passenger_detail_selector,
+    dashboard_chart_status_selector,
 )
-from apps.ticket.services import create_passenger_selector, create_order_with_reservation_selector
+from apps.ticket.services import (
+    create_passenger_selector,
+    create_order_with_reservation_selector,
+)
 
 api = BoltAPI(prefix="/api/v1/admin")
 
@@ -161,7 +167,26 @@ async def delete_passenger(passenger_id: int):
 )
 async def create_order(payload: OrderCreateSchema):
     try:
-        order, reservation = await create_order_with_reservation_selector(payload.to_dict())
-        return {"id": order.id, "status": "success", "message": "سفارش با موفقیت ثبت شد"}
+        order, reservation = await create_order_with_reservation_selector(
+            payload.to_dict()
+        )
+        return {
+            "id": order.id,
+            "status": "success",
+            "message": "سفارش با موفقیت ثبت شد",
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# روت نمودار
+@api.get(
+    "/status/chart",
+    status_code=200,
+    response_model=DashboardChartStatusSchema,
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+)
+async def dashboard_chart_status():
+    res = await dashboard_chart_status_selector()
+    return res

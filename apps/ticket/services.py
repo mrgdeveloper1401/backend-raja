@@ -23,7 +23,9 @@ async def create_order_with_reservation_selector(data: dict):
     def _create():
         with transaction.atomic():
             # ۱. پیدا کردن یا ساختن مسافر بر اساس کد ملی
-            passenger = Passenger.objects.filter(national_id=data.get("national_id")).first()
+            passenger = Passenger.objects.filter(
+                national_id=data.get("national_id")
+            ).first()
 
             # اگر مسافر از قبل بود، اطلاعاتش را آپدیت می‌کنیم
             if not passenger:

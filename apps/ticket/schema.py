@@ -113,7 +113,7 @@ class OrderCreateSchema(Serializer):
     origin: str
     destination: str
     travel_date: str
-    passenger_type:  Literal["normal", "woman", "man"]
+    passenger_type: Literal["normal", "woman", "man"]
 
     # اکانت رجا
     raja_account_id: int
@@ -122,3 +122,13 @@ class OrderCreateSchema(Serializer):
 class RajaAccountOptionSchema(Serializer):
     id: int
     username: str
+
+
+class DashboardChartStatusSchema(Serializer):
+    pending_count: int
+    monitoring_count: int
+    booking_count: int
+    redirect_gateway_count: int
+    success_count: int
+    failed_count: int
+    active_orders_count: int  # مجموع وضعیت‌های فعال

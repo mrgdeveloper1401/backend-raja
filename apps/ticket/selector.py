@@ -239,3 +239,36 @@ async def get_raja_account_options_selector():
     async for acc in accounts:
         options.append({"id": acc.id, "username": acc.username})
     return options
+
+
+async def dashboard_chart_status_selector():
+    stats = await Reservation.objects.aaggregate(
+        pending_count=Count(
+            "id", filter=Q(status=Reservation.ReservationStatus.PENDING)
+        ),
+        monitoring_count=Count(
+            "id", filter=Q(status=Reservation.ReservationStatus.MONITORING)
+        ),
+        booking_count=Count(
+            "id", filter=Q(status=Reservation.ReservationStatus.BOOKING)
+        ),
+        redirect_gateway_count=Count(
+            "id", filter=Q(status=Reservation.ReservationStatus.REDIRECT_GATEWAY)
+        ),
+        success_count=Count(
+            "id", filter=Q(status=Reservation.ReservationStatus.SUCCESS)
+        ),
+        failed_count=Count("id", filter=Q(status=Reservation.ReservationStatus.FAILED)),
+        active_orders_count=Count(
+            "id",
+            filter=Q(
+                status__in=[
+                    Reservation.ReservationStatus.PENDING,
+                    Reservation.ReservationStatus.MONITORING,
+                    Reservation.ReservationStatus.BOOKING,
+                    Reservation.ReservationStatus.REDIRECT_GATEWAY,
+                ]
+            ),
+        ),
+    )
+    return stats
