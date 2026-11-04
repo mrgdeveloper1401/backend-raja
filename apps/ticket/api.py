@@ -1,14 +1,17 @@
 from typing import List
 
 from django_bolt import BoltAPI, JWTAuthentication, IsAuthenticated
+from django_bolt.exceptions import HTTPException
 
+from apps.ticket.models import Passenger
 from apps.ticket.schema import DashboardStatusSchema, ReservationListSchema, PaginatedOrdersSchema, \
-    PaginatedPassengersSchema
+    PaginatedPassengersSchema, PassengerDetailSchema, PassengerCreateSchema
 from apps.ticket.selector import (
     dashboard_status_selector,
     five_last_reservations_selector,
     get_paginated_orders_selector, get_paginated_passengers_selector
 )
+from apps.ticket.services import create_passenger_selector
 
 api = BoltAPI(prefix="/api/v1/admin")
 
@@ -79,3 +82,23 @@ async def list_passengers(
         page_size=20
     )
     return res
+
+
+@api.post(
+    "/passengers",
+    status_code=201,
+    response_model=PassengerDetailSchema,
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+)
+async def create_passenger(payload: PassengerCreateSchema):
+    # ۱. اعتبارسنجی اضافی (مثلا یکتا بودن کد ملی)
+    exists = await Passenger.objects.filter(national_id=payload.national_id).aexists()
+    if exists:
+        raise HTTPException(status_code=400, detail="مسافری با این کد ملی قبلا ثبت شده است.")
+
+    # ۲. ذخیره در دیتابیس
+    passenger = await create_passenger_selector(payload.to_dict())
+
+    # ۳. بازگرداندن اطلاعات ذخیره شده
+    return passenger

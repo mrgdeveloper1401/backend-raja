@@ -51,3 +51,22 @@ class PaginatedPassengersSchema(Serializer):
     total: int
     page: int
     page_size: int
+
+
+class PassengerCreateSchema(Serializer):
+    first_name: str
+    last_name: str
+    national_id: str
+    gender: str
+    birth_date: Optional[date]
+    phone: str
+
+
+class PassengerDetailSchema(Serializer):
+    id: int
+    first_name: str
+    last_name: str
+    national_id: str
+    gender: str
+    birth_date: Optional[date]
+    phone: str
