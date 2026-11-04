@@ -174,9 +174,15 @@ async def get_paginated_passengers_selector(
 
 async def get_passenger_detail_selector(passenger_id: int):
     # استفاده از prefetch_related برای گرفتن سفارشات در یک کوئری جداگانه (بهینه)
-    passenger = await Passenger.objects.filter(id=passenger_id).prefetch_related(
-        Prefetch('passenger_orders', queryset=Order.objects.order_by('-travel_date'))
-    ).afirst()
+    passenger = (
+        await Passenger.objects.filter(id=passenger_id)
+        .prefetch_related(
+            Prefetch(
+                "passenger_orders", queryset=Order.objects.order_by("-travel_date")
+            )
+        )
+        .afirst()
+    )
 
     if not passenger:
         return None
@@ -196,8 +202,9 @@ async def get_passenger_detail_selector(passenger_id: int):
                 "destination": o.destination,
                 "travel_date": o.travel_date,
                 "passenger_type": o.passenger_type,
-            } for o in passenger.passenger_orders.all()
-        ]
+            }
+            for o in passenger.passenger_orders.all()
+        ],
     }
 
 
@@ -206,7 +213,9 @@ async def update_passenger_selector(passenger_id: int, data: dict):
     update_data = {k: v for k, v in data.items() if v is not None}
 
     # آپدیت در دیتابیس
-    updated_count = await Passenger.objects.filter(id=passenger_id).aupdate(**update_data)
+    updated_count = await Passenger.objects.filter(id=passenger_id).aupdate(
+        **update_data
+    )
     if not updated_count:
         return None
 

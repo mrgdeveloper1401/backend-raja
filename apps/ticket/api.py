@@ -10,13 +10,17 @@ from apps.ticket.schema import (
     PaginatedOrdersSchema,
     PaginatedPassengersSchema,
     PassengerDetailSchema,
-    PassengerCreateSchema, PassengerUpdateSchema, PassengerNewDetailSchema,
+    PassengerCreateSchema,
+    PassengerUpdateSchema,
+    PassengerNewDetailSchema,
 )
 from apps.ticket.selector import (
     dashboard_status_selector,
     five_last_reservations_selector,
     get_paginated_orders_selector,
-    get_paginated_passengers_selector, update_passenger_selector, delete_passenger_selector,
+    get_paginated_passengers_selector,
+    update_passenger_selector,
+    delete_passenger_selector,
     get_passenger_detail_selector,
 )
 from apps.ticket.services import create_passenger_selector
@@ -120,6 +124,7 @@ async def get_passenger(passenger_id: int):
         raise HTTPException(status_code=404, detail="مسافر یافت نشد")
     return res
 
+
 # ۲. ویرایش
 @api.patch(
     "/passengers/{passenger_id}",
@@ -133,6 +138,7 @@ async def update_passenger(passenger_id: int, payload: PassengerUpdateSchema):
         raise HTTPException(status_code=404, detail="مسافر یافت نشد")
     return res
 
+
 # ۳. حذف
 @api.delete(
     "/passengers/{passenger_id}",
@@ -145,4 +151,3 @@ async def delete_passenger(passenger_id: int):
     if not success:
         raise HTTPException(status_code=404, detail="مسافر یافت نشد")
     return None
-
