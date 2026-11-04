@@ -233,8 +233,9 @@ async def delete_passenger_selector(passenger_id: int):
     return deleted_count > 0
 
 
-async def get_raja_account_options_selector(raja_account_id: int):
-    accounts = await aget_object_or_404(RajaAccount, id=raja_account_id)
+async def get_raja_account_options_selector():
+    accounts = RajaAccount.objects.filter(is_active=True).order_by("-id")
     options = []
-    options.append({"id": accounts.pk, "username": accounts.username})
+    async for acc in accounts:
+        options.append({"id": acc.id, "username": acc.username})
     return options

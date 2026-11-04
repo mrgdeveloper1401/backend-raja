@@ -107,12 +107,12 @@ class OrderCreateSchema(Serializer):
     national_id: str
     gender: Literal["male", "female"]
     phone: str
-    birth_date: date
+    birth_date: str
 
     # اطلاعات سفر
     origin: str
     destination: str
-    travel_date: date
+    travel_date: str
     passenger_type:  Literal["normal", "woman", "man"]
 
     # اکانت رجا
