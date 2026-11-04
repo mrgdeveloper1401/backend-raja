@@ -1,6 +1,6 @@
-from django.db.models import Count, Q
+from django.db.models import Count, Q, OuterRef, Subquery
 
-from apps.ticket.models import Reservation
+from apps.ticket.models import Reservation, Passenger, Order
 
 
 async def dashboard_status_selector():
@@ -110,6 +110,58 @@ async def get_paginated_orders_selector(
             "origin": res.order.origin,
             "destination": res.order.destination,
             "travel_date": res.order.travel_date,
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+async def get_paginated_passengers_selector(
+        search: str = "",
+        page: int = 1,
+        page_size: int = 20
+):
+    # واکشی همه مسافران
+    queryset = Passenger.objects.all()
+
+    # ۱. فیلتر جستجو (نام، نام خانوادگی، یا شماره موبایل)
+    if search:
+        queryset = queryset.filter(
+            Q(first_name=search) |
+            Q(last_name=search) |
+            Q(phone=search)
+        )
+
+    # ۲. انوتیشن (محاسبه تعداد سفارشات و آخرین تاریخ سفر)
+    # برای بهینه بودن، فقط تاریخ سفر را از سفارشات می‌گیریم
+    last_order_subquery = Order.objects.filter(
+        passenger=OuterRef('pk')
+    ).order_by('-travel_date').values('travel_date')[:1]
+
+    queryset = queryset.annotate(
+        orders_count=Count('passenger_orders'),
+        last_order_date=Subquery(last_order_subquery)
+    ).order_by('-id')  # مرتب‌سازی بر اساس جدیدترین مسافران
+
+    # ۳. شمارش کل
+    total = await queryset.acount()
+
+    # ۴. صفحه‌بندی
+    offset = (page - 1) * page_size
+    items = []
+
+    # واکشی محدود
+    async for passenger in queryset[offset:offset + page_size]:
+        items.append({
+            "id": passenger.id,
+            "full_name": f"{passenger.first_name} {passenger.last_name}".strip(),
+            "phone": passenger.phone,
+            "orders_count": passenger.orders_count,
+            "last_order_date": passenger.last_order_date,
         })
 
     return {

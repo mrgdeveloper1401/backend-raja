@@ -1,3 +1,5 @@
+from typing import Optional
+
 from django_bolt.serializers import Serializer
 from datetime import date
 
@@ -31,6 +33,21 @@ class OrderListSchema(Serializer):
 
 class PaginatedOrdersSchema(Serializer):
     items: list[OrderListSchema]
+    total: int
+    page: int
+    page_size: int
+
+
+class PassengerListSchema(Serializer):
+    id: int
+    full_name: str
+    phone: str
+    orders_count: int
+    last_order_date: Optional[date] = None
+
+
+class PaginatedPassengersSchema(Serializer):
+    items: list[PassengerListSchema]
     total: int
     page: int
     page_size: int
