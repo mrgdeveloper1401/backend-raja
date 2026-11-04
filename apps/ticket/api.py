@@ -12,7 +12,7 @@ from apps.ticket.schema import (
     PassengerDetailSchema,
     PassengerCreateSchema,
     PassengerUpdateSchema,
-    PassengerNewDetailSchema,
+    PassengerNewDetailSchema, OrderCreateSchema,
 )
 from apps.ticket.selector import (
     dashboard_status_selector,
@@ -23,7 +23,7 @@ from apps.ticket.selector import (
     delete_passenger_selector,
     get_passenger_detail_selector,
 )
-from apps.ticket.services import create_passenger_selector
+from apps.ticket.services import create_passenger_selector, create_order_with_reservation_selector
 
 api = BoltAPI(prefix="/api/v1/admin")
 
@@ -151,3 +151,17 @@ async def delete_passenger(passenger_id: int):
     if not success:
         raise HTTPException(status_code=404, detail="مسافر یافت نشد")
     return None
+
+
+@api.post(
+    "/orders",
+    status_code=201,
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+)
+async def create_order(payload: OrderCreateSchema):
+    try:
+        order, reservation = await create_order_with_reservation_selector(payload.to_dict())
+        return {"id": order.id, "status": "success", "message": "سفارش با موفقیت ثبت شد"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

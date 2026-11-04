@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 from django_bolt.serializers import Serializer
 from datetime import date
@@ -98,3 +98,27 @@ class PassengerNewDetailSchema(Serializer):
     birth_date: Optional[date]
     phone: str
     orders: List[PassengerOrderSchema] = []
+
+
+class OrderCreateSchema(Serializer):
+    # اطلاعات مسافر (اگر مسافر جدید است)
+    first_name: str
+    last_name: str
+    national_id: str
+    gender: Literal["male", "female"]
+    phone: str
+    birth_date: date
+
+    # اطلاعات سفر
+    origin: str
+    destination: str
+    travel_date: date
+    passenger_type:  Literal["normal", "woman", "man"]
+
+    # اکانت رجا
+    raja_account_id: int
+
+
+class RajaAccountOptionSchema(Serializer):
+    id: int
+    username: str

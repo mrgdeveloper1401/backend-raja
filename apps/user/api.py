@@ -2,6 +2,8 @@
 from django_bolt import BoltAPI, JWTAuthentication, IsAuthenticated
 from django_bolt.exceptions import HTTPException
 
+from apps.ticket.schema import RajaAccountOptionSchema
+from apps.ticket.selector import get_raja_account_options_selector
 from apps.user.schema import (
     RajaAccountCreateSchema,
     RajaAccountUpdateSchema,
@@ -53,7 +55,7 @@ async def list_raja_accounts(search: str = "", page: int = 1):
     status_code=201,
     auth=[JWTAuthentication()],
     guards=[IsAuthenticated()],
-    response_model=RajaAccountCreateSchema
+    response_model=RajaAccountCreateSchema,
 )
 async def create_raja_account(payload: RajaAccountCreateSchema):
     # چک کردن تکراری نبودن یوزرنیم
@@ -70,7 +72,7 @@ async def create_raja_account(payload: RajaAccountCreateSchema):
     "/raja-accounts/{account_id}",
     auth=[JWTAuthentication()],
     guards=[IsAuthenticated()],
-    response_model=RajaAccountUpdateSchema
+    response_model=RajaAccountUpdateSchema,
 )
 async def update_raja_account(account_id: int, payload: RajaAccountUpdateSchema):
     res = await update_raja_account_selector(account_id, payload.to_dict())
@@ -90,3 +92,13 @@ async def delete_raja_account(account_id: int):
     if not success:
         raise HTTPException(status_code=404, detail="اکانت یافت نشد")
     return None
+
+
+@api.get(
+    "/raja-accounts/options",
+    response_model=list[RajaAccountOptionSchema],
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+)
+async def raja_account_options():
+    return await get_raja_account_options_selector()

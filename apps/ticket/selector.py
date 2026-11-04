@@ -1,6 +1,8 @@
 from django.db.models import Count, Q, OuterRef, Subquery, Prefetch
+from django.shortcuts import aget_object_or_404
 
 from apps.ticket.models import Reservation, Passenger, Order
+from apps.user.models import RajaAccount
 
 
 async def dashboard_status_selector():
@@ -229,3 +231,10 @@ async def delete_passenger_selector(passenger_id: int):
     # یا حذف فیزیکی (با توجه به SoftDeleteMixin در مدل شما، احتمالا به صورت خودکار نرم حذف می‌شود)
     deleted_count, _ = await Passenger.objects.filter(id=passenger_id).adelete()
     return deleted_count > 0
+
+
+async def get_raja_account_options_selector(raja_account_id: int):
+    accounts = await aget_object_or_404(RajaAccount, id=raja_account_id)
+    options = []
+    options.append({"id": accounts.pk, "username": accounts.username})
+    return options
