@@ -51,3 +51,70 @@ async def five_last_reservations_selector():
 
     return results
 
+
+async def get_paginated_orders_selector(
+    tab: str = "all",
+    search: str = "",
+    date: str = None,
+    page: int = 1,
+    page_size: int = 20
+):
+    # واکشی اولیه با روابط (برای جلوگیری از N+1)
+    queryset = Reservation.objects.select_related("order__passenger").all()
+
+    # ۱. فیلتر تب‌ها
+    if tab == "active":
+        queryset = queryset.filter(
+            status__in=[
+                Reservation.ReservationStatus.PENDING,
+                Reservation.ReservationStatus.MONITORING,
+                Reservation.ReservationStatus.BOOKING,
+                Reservation.ReservationStatus.REDIRECT_GATEWAY,
+            ]
+        )
+    elif tab == "success":
+        queryset = queryset.filter(status=Reservation.ReservationStatus.SUCCESS)
+    elif tab == "failed":
+        queryset = queryset.filter(status=Reservation.ReservationStatus.FAILED)
+
+    # ۲. فیلتر جستجو (بر اساس کد سفارش، نام مسافر، مبدا، مقصد)
+    if search:
+        queryset = queryset.filter(
+            Q(id__icontains=search) |
+            Q(order__passenger__first_name=search) |
+            Q(order__passenger__last_name=search) |
+            Q(order__origin=search) |
+            Q(order__destination=search)
+        )
+
+    # ۳. فیلتر تاریخ
+    if date:
+        queryset = queryset.filter(order__travel_date=date)
+
+    # ۴. مرتب‌سازی
+    queryset = queryset.order_by("-id")
+
+    # ۵. شمارش کل برای صفحه‌بندی
+    total = await queryset.acount()
+
+    # ۶. صفحه‌بندی
+    offset = (page - 1) * page_size
+    # استفاده از async for برای واکشی محدود
+    items = []
+    async for res in queryset[offset:offset+page_size]:
+        items.append({
+            "id": res.id,
+            "status": res.status,
+            "passenger_name": f"{res.order.passenger.first_name} {res.order.passenger.last_name}",
+            "passenger_phone": res.order.passenger.phone,
+            "origin": res.order.origin,
+            "destination": res.order.destination,
+            "travel_date": res.order.travel_date,
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }

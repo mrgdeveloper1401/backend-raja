@@ -17,3 +17,20 @@ class ReservationListSchema(Serializer):
     destination: str
     travel_date: date
     status: str
+
+
+class OrderListSchema(Serializer):
+    id: int
+    status: str
+    passenger_name: str
+    passenger_phone: str
+    origin: str
+    destination: str
+    travel_date: date
+
+
+class PaginatedOrdersSchema(Serializer):
+    items: list[OrderListSchema]
+    total: int
+    page: int
+    page_size: int
