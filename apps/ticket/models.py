@@ -97,6 +97,12 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
         blank=True, null=True, verbose_name="لینک درگاه پرداخت"
     )
     error_message = models.TextField(blank=True, null=True, verbose_name="پیام خطا")
+    celery_task_id = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name="شناسه تسک سلری"
+    )
 
     class Meta:
         db_table = "reservations"

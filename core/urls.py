@@ -16,9 +16,9 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 
-from core.settings import DEBUG
+from core.settings import DEBUG, USE_CELERY_TASK_VIEW
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -29,3 +29,6 @@ if DEBUG:
 
     # اضافه کردن مسیرهای دیباگ تور بار به لیست موجود بدون بازنویسی آن
     urlpatterns += debug_toolbar_urls()
+
+if USE_CELERY_TASK_VIEW:
+    (path("celery-tasks/", include("celery_task_view.urls")),)

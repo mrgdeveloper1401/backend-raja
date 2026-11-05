@@ -209,6 +209,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-celery-task-view"
+version = "0.1.1"
+source = { registry = "https://mirror-pypi.runflare.com/simple" }
+dependencies = [
+    { name = "celery" },
+    { name = "redis" },
+]
+sdist = { url = "https://mirror-pypi.runflare.com/packages/b5/9a/80f3a1c3e0954caf26d64c43842a556703fef72abafaac653f69559d7ad7/django_celery_task_view-0.1.1.tar.gz", hash = "sha256:4da934f66428f3fb3adf8f8d10071eb53ff016c21dd44513175c253a8af894c6" }
+wheels = [
+    { url = "https://mirror-pypi.runflare.com/packages/f8/60/6892251162894a0bca40f6dded0effe5e8a843bac107bbd5c01a842ac182/django_celery_task_view-0.1.1-py3-none-any.whl", hash = "sha256:ca0be490cba15118e2374d4ebcffbcc7f5e93ae212edb04922ccdb1d8fce5936" },
+]
+
+[[package]]
 name = "django-debug-toolbar"
 version = "8.0.0"
 source = { registry = "https://mirror-pypi.runflare.com/simple" }
@@ -918,6 +931,7 @@ dependencies = [
     { name = "apscheduler" },
     { name = "celery", extra = ["redis"] },
     { name = "django-bolt" },
+    { name = "django-celery-task-view" },
     { name = "django-debug-toolbar" },
     { name = "django-json-widget" },
     { name = "django-redis" },
@@ -945,6 +959,7 @@ requires-dist = [
     { name = "apscheduler", specifier = ">=3.11.3" },
     { name = "celery", extras = ["redis"], specifier = ">=5.6.3" },
     { name = "django-bolt", specifier = ">=0.12.0" },
+    { name = "django-celery-task-view", specifier = ">=0.1.1" },
     { name = "django-debug-toolbar", specifier = ">=8.0.0" },
     { name = "django-json-widget", specifier = ">=2.1.1" },
     { name = "django-redis", specifier = ">=7.0.0" },
