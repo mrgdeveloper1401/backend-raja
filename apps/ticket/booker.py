@@ -54,7 +54,15 @@ class RajaBooker:
     async def start(self):
         try:
             self.account = await RajaAccount.objects.aget(id=self.account_id)
-
+            print("اطلاعات کاربر")
+            data = {
+                "origin": self.origin,
+                "destination": self.destination,
+                "travel_date": self.travel_date,
+                "travel_phone": self.travel_phone,
+                "passengers": self.passengers,
+            }
+            print(data)
             browser_args = [
                 "--disable-blink-features=AutomationControlled",
             ]
@@ -86,6 +94,14 @@ class RajaBooker:
                 )
                 self.page.set_default_timeout(10000)
 
+                await self.page.goto("https://raja.ir/", wait_until="networkidle")
+
+                # ✅ پاک کردن state سشن قبلی (بدون لمس کوکی‌های لاگین)
+                await self.page.evaluate("""() => {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                }""")
+                # ریلود تا سایت با storage پاک شروع کنه
                 await self.page.goto("https://raja.ir/", wait_until="networkidle")
 
                 # ۱. چک لاگین
@@ -386,8 +402,3 @@ class RajaBooker:
         await self._update_status(
             Reservation.ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
         )
-
-        print(
-            "به درگاه بانک منتقل شدیم. ربات متوقف شد. برای بستن مرورگر یا ادامه، دستی اقدام کنید."
-        )
-        await self.page.pause()

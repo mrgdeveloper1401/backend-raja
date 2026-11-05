@@ -1,7 +1,6 @@
 # apps/ticket/services.py
 from asgiref.sync import sync_to_async
 from django.db import transaction
-from django.shortcuts import get_object_or_404
 
 from apps.ticket.models import Passenger, Reservation, Order
 
