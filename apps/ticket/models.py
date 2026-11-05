@@ -85,7 +85,7 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
         verbose_name="سفارش",
     )
     raja_account = models.ForeignKey(
-        RajaAccount, on_delete=models.DO_NOTHING, verbose_name="اکانت رجا"
+        RajaAccount, on_delete=models.CASCADE, verbose_name="اکانت رجا"
     )
     status = models.CharField(
         max_length=20,
