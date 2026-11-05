@@ -5,16 +5,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('ticket', '0006_alter_order_options_alter_passenger_options_and_more'),
-        ('user', '0002_rajaaccount'),
+        ("ticket", "0006_alter_order_options_alter_passenger_options_and_more"),
+        ("user", "0002_rajaaccount"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='reservation',
-            name='raja_account',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, to='user.rajaaccount', verbose_name='اکانت رجا'),
+            model_name="reservation",
+            name="raja_account",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.DO_NOTHING,
+                to="user.rajaaccount",
+                verbose_name="اکانت رجا",
+            ),
         ),
     ]

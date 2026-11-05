@@ -1,6 +1,7 @@
 # apps/ticket/booker.py
 import asyncio
 import traceback
+import random
 from pathlib import Path
 
 from decouple import config
@@ -9,7 +10,6 @@ from apps.ticket.models import Reservation
 from apps.user.models import RajaAccount
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
 
 USE_DOCKER = config("USE_DOCKER", cast=bool, default=False)
 
@@ -22,7 +22,7 @@ class RajaBooker:
         destination,
         travel_date,
         passengers,
-        headless=False,  # ⚠️ حتماً باید False باشد
+        headless=False,
         reservation_id=None,
         travel_phone=None,
     ):
@@ -63,37 +63,35 @@ class RajaBooker:
                 browser_args.extend(
                     [
                         "--no-sandbox",
-                        "--disable-setuid-sandbox",
                         "--disable-dev-shm-usage",
                     ]
                 )
+
             async with async_playwright() as p:
                 print("در حال راه‌اندازی مرورگر با Patchright...")
 
-                # استفاده از launch_persistent_context برای بهترین عملکرد ضد ربات
                 self.context = await p.chromium.launch_persistent_context(
                     user_data_dir=str(BASE_DIR / "raja_user_data"),
-                    channel="chrome",  # استفاده از کروم واقعی
-                    headless=self.headless,  # باید False باشد
+                    channel="chrome",
+                    headless=self.headless,
                     no_viewport=True,
-                    slow_mo=100,  # کمی کندتر برای شبیه شدن به انسان
+                    slow_mo=100,
                     args=browser_args,
                 )
 
-                # در persistent context، صفحه پیش‌فرض باز است
                 self.page = (
                     self.context.pages[0]
                     if self.context.pages
                     else await self.context.new_page()
                 )
-                self.page.set_default_timeout(100000)
+                self.page.set_default_timeout(10000)
 
-                await self.page.goto("https://raja.ir/", wait_until="domcontentloaded")
+                await self.page.goto("https://raja.ir/", wait_until="networkidle")
 
-                # ۱. چک کردن لاگین
+                # ۱. چک لاگین
                 is_logged_in = await self._check_login()
                 if not is_logged_in:
-                    print("سشن منقضی شده یا وجود ندارد. شروع لاگین...")
+                    print("شروع لاگین...")
                     await self._do_login()
                     print("لاگین انجام شد.")
 
@@ -101,7 +99,7 @@ class RajaBooker:
                 print("ورود موفق! شروع تنظیم فرم...")
                 await self._fill_search_form()
 
-                # ۳. رصد و انتخاب قطار
+                # ۳. رصد و رزرو
                 print("شروع رصد...")
                 await self._monitor_and_book()
 
@@ -109,11 +107,10 @@ class RajaBooker:
                 print("در حال پر کردن اطلاعات مسافران...")
                 await self._fill_passenger_details()
 
-                # ۵. رفتن به درگاه پرداخت و توقف
-                print("در حال انتقال به درگاه پرداخت...")
+                # ۵. پرداخت
+                print("در حال رفتن به پرداخت...")
                 await self._go_to_payment()
 
-                # ⛔️ اینجا ربات متوقف میشه تا کاربر پرداخت کنه
                 print("به درگاه پرداخت رسیدیم. منتظر اقدام کاربر...")
 
         except Exception as e:
@@ -123,21 +120,23 @@ class RajaBooker:
                 Reservation.ReservationStatus.FAILED, error_message=str(e)
             )
         finally:
-            # بستن امن مرورگر در پایان کار (اگر کاربر قبلاً نبسته باشد)
             if self.context:
                 await self.context.close()
 
-    async def _check_login(self):
-        # چک می‌کنیم که آیا نام کاربری در صفحه وجود دارد یا خیر
-        try:
-            # منتظر می‌مانیم تا المان app-user کاملاً لود شود
-            await self.page.wait_for_selector("app-user", timeout=5000)
+    # ====================== متدهای انسانی ======================
 
-            # گرفتن متن داخل app-user
+    async def _human_delay(self, min_ms=0.1, max_ms=0.9):
+        """تأخیر تصادفی انسانی"""
+        delay = random.uniform(min_ms, max_ms)
+        print(f"⏸️ تأخیر انسانی: {delay:.1f} میلی‌ثانیه")
+        await asyncio.sleep(delay)
+
+    async def _check_login(self):
+        try:
             user_element = self.page.locator("app-user")
             text_content = await user_element.inner_text()
 
-            if "ورود / عضویت" in text_content:
+            if "ورود / عضویت" in text_content or "ورود" in text_content.lower():
                 print("دکمه ورود/عضویت در صفحه هست. لاگین نیستیم.")
                 return False
             else:
@@ -145,30 +144,41 @@ class RajaBooker:
                 return True
         except Exception as e:
             print(f"خطا در بررسی لاگین: {e}")
-            # در صورت خطا، فرض می‌کنیم لاگین نیستیم تا لاگین انجام شود
             return False
 
     async def _do_login(self):
+        await self._human_delay()
+
         print("کلیک روی دکمه ورود/عضویت...")
         await self.page.locator("#dropdownForm1").click()
-        await self.page.locator("#UserName").fill(self.account.username)
-        await self.page.locator("#Password").fill(self.account.password)
+
+        await self._human_delay()
+
+        print("ورود نام کاربری...")
+        await self.page.locator("#UserName").type(self.account.username, delay=80)
+        await self._human_delay()
+
+        print("ورود رمز عبور...")
+        await self.page.locator("#Password").type(self.account.password, delay=80)
+        await self._human_delay()
 
         print("کلیک روی دکمه ورود سبز...")
         await self.page.locator("form.login button[type='submit']").click()
         await self.page.wait_for_load_state("domcontentloaded")
+        await self._human_delay()
 
     async def _fill_search_form(self):
-        print("در حال پر کردن فرم جستجو...")
+        await self._human_delay()
 
-        # ۱. انتخاب مبدا
+        # انتخاب مبدا
         await self.page.locator(".ng-select-container").first.click()
         await self.page.locator(f".ng-option:has-text('{self.origin}')").first.wait_for(
             state="visible"
         )
         await self.page.locator(f".ng-option:has-text('{self.origin}')").first.click()
+        await self._human_delay()
 
-        # ۲. انتخاب مقصد
+        # انتخاب مقصد
         await self.page.locator(".ng-select-container").nth(1).click()
         await self.page.locator(
             f".ng-option:has-text('{self.destination}')"
@@ -176,28 +186,34 @@ class RajaBooker:
         await self.page.locator(
             f".ng-option:has-text('{self.destination}')"
         ).first.click()
+        await self._human_delay()
 
-        # ۳. انتخاب تاریخ
+        # انتخاب تاریخ
         await self.page.locator("button.icon-calendar").click()
-        year, month, day = self.travel_date.split("-")
-        day = int(day)
+        await self._human_delay()
 
+        year, month, day = self.travel_date.split("-")
         date_locator = self.page.locator(
             f"div.ngb-dp-day:not(.disabled):has-text('{day}')"
         ).first
         await date_locator.click()
+        await self._human_delay()
 
-        # ۴. تعداد مسافران
+        # تعداد مسافران
         total_passengers = len(self.passengers)
         await self.page.locator("#dropdownPassenger").click()
+        await self._human_delay()
 
         plus_adult_btn = self.page.locator("button[title='plus-adult']")
         for _ in range(total_passengers - 1):
             await plus_adult_btn.click()
-        await self.page.locator("body").click()  # بستن منو
+            await self._human_delay()
+        await self.page.locator("body").click()
+        await self._human_delay()
 
-        # ۶. کلیک روی دکمه جستجو
+        # جستجو
         await self.page.locator("#btnsearchticket").click()
+        await self._human_delay()
 
     async def _monitor_and_book(self):
         await self._update_status(Reservation.ReservationStatus.MONITORING)
@@ -214,20 +230,23 @@ class RajaBooker:
                     await book_btn.click()
                     break
                 else:
-                    await asyncio.sleep(1)
+                    await self._human_delay()
             except Exception as e:
-                print(f"هنوز ظرفیتی پیدا نشد: {e}")
-                await asyncio.sleep(3)
+                await self._human_delay()
 
         await self.page.locator("button:has-text('ادامه خرید')").click()
+        await self._human_delay()
 
     async def _fill_passenger_details(self):
+        await self._human_delay()
         print("در حال پر کردن مشخصات مسافران...")
 
         await self.page.get_by_text("کد ملی/شماره پاسپورت").first.wait_for(
             state="visible", timeout=15000
         )
         print("فرم مسافران با موفقیت لود شد.")
+
+        await self._human_delay()
 
         passenger_blocks = self.page.locator(".passanger-registor").filter(
             has=self.page.get_by_text("کد ملی/شماره پاسپورت")
@@ -245,6 +264,7 @@ class RajaBooker:
             print(f"--- در حال پردازش مسافر {i + 1} ---")
 
             try:
+                await self._human_delay()
                 national_id = passenger.get("national_id")
                 if national_id:
                     input_locator = block.get_by_role("textbox").first
@@ -254,6 +274,7 @@ class RajaBooker:
                 print(f"خطا در کد ملی: {e}")
 
             try:
+                await self._human_delay()
                 birth_date = passenger.get("birth_date")
                 if birth_date:
                     birth_input = block.locator("input[title='روز/ماه/سال']")
@@ -266,6 +287,7 @@ class RajaBooker:
                 print(f"خطا در تاریخ تولد: {e}")
 
             try:
+                await self._human_delay()
                 first_name = passenger.get("first_name")
                 if first_name:
                     name_input = block.locator("input[name='pName']")
@@ -276,6 +298,7 @@ class RajaBooker:
                 print(f"خطا در نام: {e}")
 
             try:
+                await self._human_delay()
                 last_name = passenger.get("last_name")
                 if last_name:
                     family_input = block.locator("input[name='pFamily']")
@@ -289,34 +312,36 @@ class RajaBooker:
 
     async def _go_to_payment(self):
         print("در حال تیک زدن قوانین و رفتن به پرداخت...")
+        await self._human_delay()
 
+        # تیک قوانین
         try:
-            label_locator = self.page.locator(
+            await self.page.locator(
                 "label.custom-control-label:has-text('صحت مشخصات')"
-            )
-            await label_locator.click()
-            print("تیک تایید قوانین زده شد.")
-        except Exception as e:
-            print(f"خطا در کلیک روی لیبل قوانین: {e}")
+            ).click()
+            await self._human_delay()
+        except:
             await self.page.locator(
                 "div.custom-control.custom-checkbox input[type='checkbox']"
             ).first.check(force=True)
+            await self._human_delay()
 
+        # شماره موبایل
         try:
             phone_input = self.page.locator("input.phonenumber")
-            await phone_input.wait_for(state="visible", timeout=15000)
-            current_phone = await phone_input.input_value()
-            if not current_phone and self.travel_phone:
-                await phone_input.fill(self.travel_phone)
-                print("شماره موبایل پر شد.")
-        except Exception as e:
-            print(f"خطا در پر کردن شماره موبایل: {e}")
+            await phone_input.wait_for(state="visible")
+            if self.travel_phone and not await phone_input.input_value():
+                await phone_input.type(self.travel_phone, delay=60)
+                await self._human_delay()
+        except:
+            pass
+
+        await self._human_delay()
 
         print("کلیک روی دکمه پرداخت اولیه...")
-        payment_btn = self.page.locator("button.btn-success:has-text('پرداخت')")
-        await payment_btn.click()
+        await self.page.locator("button.btn-success:has-text('پرداخت')").click()
+        await self._human_delay()
 
-        # بررسی کپچا
         try:
             await self.page.wait_for_selector(
                 "div[role='document'].modal-dialog", timeout=5000
@@ -331,9 +356,6 @@ class RajaBooker:
         except:
             print("کپچا ظاهر نشد. ادامه...")
 
-        print("در حال انتخاب بانک و رفتن به درگاه اصلی...")
-
-        # تلاش برای پیدا کردن بانک (با ۳ بار تلاش مجدد)
         for attempt in range(3):
             try:
                 bank_btn = self.page.locator("div.DivBank").first
@@ -365,9 +387,6 @@ class RajaBooker:
             Reservation.ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
         )
 
-        # ⛔️ مهم‌ترین بخش: توقف نهایی!
-        # اینجا ربات دوباره متوقف میشه. شما می‌تونید برید تو مرورگر، پرداخت رو انجام بدید یا هر کار دیگه‌ای بکنید.
-        # مرورگر بسته نمیشه تا وقتی که شما پنجره رو ببندید یا روی Resume بزنید.
         print(
             "به درگاه بانک منتقل شدیم. ربات متوقف شد. برای بستن مرورگر یا ادامه، دستی اقدام کنید."
         )

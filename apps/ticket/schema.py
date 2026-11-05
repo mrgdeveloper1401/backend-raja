@@ -1,4 +1,4 @@
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Union
 
 from django_bolt.serializers import Serializer
 from datetime import date
@@ -116,7 +116,7 @@ class OrderCreateSchema(Serializer):
     passenger_type: Literal["normal", "woman", "man"]
 
     # اکانت رجا
-    raja_account_id: int
+    raja_account_id: Union[str, int]
 
 
 class RajaAccountOptionSchema(Serializer):

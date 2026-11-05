@@ -2,10 +2,10 @@ import asyncio
 import jdatetime
 from celery import shared_task
 from .booker import RajaBooker
-from .models import Reservation, Order, Passenger
+from .models import Reservation
 
 
-@shared_task(queue="booker", time_limit=3600, soft_time_limit=3600)
+@shared_task(queue="booker", time_limit=300)
 def process_reservation_task(reservation_id):
     try:
         reservation = Reservation.objects.get(id=reservation_id)
