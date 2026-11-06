@@ -6,6 +6,9 @@ from pathlib import Path
 
 from decouple import config
 from patchright.async_api import async_playwright
+from pypasser.antibot import arvancloud
+from pypasser.captcha import arcaptcha
+
 from apps.ticket.models import Reservation
 from apps.user.models import RajaAccount
 
@@ -51,6 +54,17 @@ class RajaBooker:
             except Exception as e:
                 print(f"خطا در آپدیت وضعیت دیتابیس: {e}")
 
+    async def _handle_ar_capcha(self):
+        try:
+            result = arvancloud.solve("https://raja.ir/")
+            if result.cookies and "__arcsjs" in result.cookies:
+                await self.context.add_cookies([...])
+                print("کوکی‌ها تزریق شدند.")
+            else:
+                print("کوکی دریافت نشد، ممکن است چالش فعال نباشد.")
+        except Exception as e:
+            print(f"خطا در حل چالش آروان‌کلاد: {e}. ادامه بدون کوکی...")
+
     async def start(self):
         try:
             self.account = await RajaAccount.objects.aget(id=self.account_id)
@@ -75,6 +89,7 @@ class RajaBooker:
                     ]
                 )
 
+            result = arvancloud.solve("https://raja.ir/")
             async with async_playwright() as p:
                 print("در حال راه‌اندازی مرورگر با Patchright...")
 
@@ -86,14 +101,9 @@ class RajaBooker:
                     slow_mo=100,
                     args=browser_args,
                 )
-
-                self.page = (
-                    self.context.pages[0]
-                    if self.context.pages
-                    else await self.context.new_page()
-                )
+                self.page = await self.context.new_page()
                 self.page.set_default_timeout(10000)
-
+                # await self._handle_ar_capcha()
                 await self.page.goto("https://raja.ir/", wait_until="networkidle")
 
                 # ✅ پاک کردن state سشن قبلی (بدون لمس کوکی‌های لاگین)
@@ -101,6 +111,7 @@ class RajaBooker:
                     localStorage.clear();
                     sessionStorage.clear();
                 }""")
+
                 # ریلود تا سایت با storage پاک شروع کنه
                 await self.page.goto("https://raja.ir/", wait_until="networkidle")
 
@@ -358,19 +369,33 @@ class RajaBooker:
         await self.page.locator("button.btn-success:has-text('پرداخت')").click()
         await self._human_delay()
 
+        # ✅ تلاش برای حل خودکار کپچا با PyPasser
+        print("در حال تلاش برای حل خودکار کپچا...")
         try:
-            await self.page.wait_for_selector(
-                "div[role='document'].modal-dialog", timeout=5000
+            result = await arcaptcha.asolve(
+                page=self.page,
+                site_key="t8xr2hpxue",  # کلیدی که از اسکریپت پیدا کردید
+                domain="raja.ir"
             )
-            print("کپچا ظاهر شد. نیاز به حل دستی توسط اپراتور.")
+
+            if result.is_solved:
+                print("کپچا با موفقیت حل شد.")
+            else:
+                print("حل خودکار ناموفق بود. نیاز به حل دستی.")
+                await self._update_status(
+                    Reservation.ReservationStatus.PENDING,
+                    error_message="نیاز به حل دستی کپچا",
+                )
+                if not self.headless:
+                    await self.page.pause()  # توقف برای حل دستی از طریق VNC
+        except Exception as e:
+            print(f"خطا در حل کپچا: {e}")
             await self._update_status(
                 Reservation.ReservationStatus.PENDING,
-                error_message="نیاز به حل دستی کپچا",
+                error_message=f"خطای کپچا: {e}",
             )
-            # ربات اینجا متوقف میشه تا شما کپچا رو حل کنید و روی Resume بزنید
-            await self.page.pause()
-        except:
-            print("کپچا ظاهر نشد. ادامه...")
+            if not self.headless:
+                await self.page.pause()
 
         # for attempt in range(3):
         #     try:
@@ -402,3 +427,5 @@ class RajaBooker:
         await self._update_status(
             Reservation.ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
         )
+        print("به درگاه پرداخت رسیدیم برای برای حارج شدن از مرورگر فقط مرورگر رو ببندید")
+        await self.page.pause()
