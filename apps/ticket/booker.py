@@ -372,27 +372,27 @@ class RajaBooker:
         except:
             print("کپچا ظاهر نشد. ادامه...")
 
-        for attempt in range(3):
-            try:
-                bank_btn = self.page.locator("div.DivBank").first
-                await bank_btn.wait_for(state="visible", timeout=10000)
-                await bank_btn.click()
-                print("بانک انتخاب شد.")
-                break
-            except Exception as e:
-                print(f"تلاش {attempt + 1} برای پیدا کردن بانک ناموفق بود: {e}")
-                await asyncio.sleep(2)
+        # for attempt in range(3):
+        #     try:
+        #         bank_btn = self.page.locator("div.DivBank").first
+        #         await bank_btn.wait_for(state="visible", timeout=10000)
+        #         await bank_btn.click()
+        #         print("بانک انتخاب شد.")
+        #         break
+        #     except Exception as e:
+        #         print(f"تلاش {attempt + 1} برای پیدا کردن بانک ناموفق بود: {e}")
+        #         await asyncio.sleep(2)
 
         # کلیک روی پرداخت نهایی
-        try:
-            final_payment_btn = self.page.locator(
-                "button.btn-success:has-text('پرداخت')"
-            )
-            await final_payment_btn.wait_for(state="visible", timeout=10000)
-            await final_payment_btn.click()
-            print("کلیک روی پرداخت نهایی انجام شد.")
-        except Exception as e:
-            print(f"دکمه پرداخت نهایی پیدا نشد یا خطا داد: {e}")
+        # try:
+        #     final_payment_btn = self.page.locator(
+        #         "button.btn-success:has-text('پرداخت')"
+        #     )
+        #     await final_payment_btn.wait_for(state="visible", timeout=10000)
+        #     await final_payment_btn.click()
+        #     print("کلیک روی پرداخت نهایی انجام شد.")
+        # except Exception as e:
+        #     print(f"دکمه پرداخت نهایی پیدا نشد یا خطا داد: {e}")
 
         # صبر میکنیم تا URL تغییر کند (به درگاه بانک منتقل شود)
         # await asyncio.sleep(5)

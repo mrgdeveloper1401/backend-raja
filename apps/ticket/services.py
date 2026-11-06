@@ -26,7 +26,7 @@ async def create_order_with_reservation_selector(data: dict):
                 national_id=data.get("national_id")
             ).first()
 
-            # اگر مسافر از قبل بود، اطلاعاتش را آپدیت می‌کنیم
+            # اگر مسافر نبود یکی ان را میسازیم
             if not passenger:
                 passenger = Passenger.objects.create(
                     national_id=data.get("national_id"),
