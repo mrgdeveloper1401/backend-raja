@@ -6,7 +6,7 @@ from .booker import RajaBooker
 from .models import Reservation
 
 
-@shared_task(queue="booker", time_limit=36000)
+@shared_task(queue="booker", time_limit=3600)
 def process_reservation_task(reservation_id):
     try:
         reservation = Reservation.objects.get(id=reservation_id)
