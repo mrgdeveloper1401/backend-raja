@@ -6,8 +6,8 @@ from pathlib import Path
 
 from decouple import config
 from patchright.async_api import async_playwright
-from pypasser.antibot import arvancloud
-from pypasser.captcha import arcaptcha
+# from pypasser.antibot import arvancloud
+# from pypasser.captcha import arcaptcha
 
 from apps.ticket.models import Reservation
 from apps.user.models import RajaAccount
@@ -54,7 +54,7 @@ class RajaBooker:
             except Exception as e:
                 print(f"خطا در آپدیت وضعیت دیتابیس: {e}")
 
-    async def _handle_ar_capcha(self):
+    # async def _handle_ar_capcha(self):
         try:
             result = arvancloud.solve("https://raja.ir/")
             if result.cookies and "__arcsjs" in result.cookies:
