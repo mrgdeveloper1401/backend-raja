@@ -84,7 +84,6 @@ class RajaBooker:
             if USE_DOCKER:
                 browser_args.extend(
                     [
-                        "--no-sandbox",
                         "--disable-dev-shm-usage",
                     ]
                 )
