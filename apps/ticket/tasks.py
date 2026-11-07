@@ -1,9 +1,18 @@
 # apps/ticket/tasks.py
 import asyncio
+import sys
 import jdatetime
 from celery import shared_task
 from .booker import RajaBooker
 from .models import Reservation
+
+
+def run_async_task(coro):
+    """اجرای یک تابع آسنکرون در یک حلقه رویداد جدید با policy صحیح در ویندوز."""
+    if sys.platform == "win32":
+        # اطمینان از استفاده از ProactorEventLoop که از subprocess پشتیبانی می‌کند
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.run(coro)
 
 
 @shared_task(queue="booker", time_limit=3600)
@@ -44,10 +53,5 @@ def process_reservation_task(reservation_id):
         travel_phone=reservation.order.passenger.phone,
     )
 
-    # چون سلری سینک هست، یه لوپ جدید می‌سازیم
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(booker.start())
-    finally:
-        loop.close()
+    # 👇 فراخوانی تابع کمکی برای اجرای تسک آسنکرون
+    run_async_task(booker.start())

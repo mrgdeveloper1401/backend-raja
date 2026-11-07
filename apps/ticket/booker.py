@@ -1,5 +1,6 @@
 # apps/ticket/booker.py
 import asyncio
+import sys  # 👈 اضافه شد
 import traceback
 import random
 from pathlib import Path
@@ -15,6 +16,21 @@ from apps.user.models import RajaAccount
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 USE_DOCKER = config("USE_DOCKER", cast=bool, default=False)
+
+
+# 👇 تابع جدید برای تنظیم حلقه رویداد ویندوز
+def _ensure_proactor_loop():
+    """
+    اطمینان از اینکه ویندوز از ProactorEventLoop استفاده می‌کند.
+    این حلقه برای اجرای Subprocess (که Patchright/Playwright نیاز دارد) الزامی است.
+    """
+    if sys.platform == "win32":
+        if not isinstance(
+            asyncio.get_event_loop_policy(), 
+            asyncio.WindowsProactorEventLoopPolicy
+        ):
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+            print("✅ حلقه رویداد (Event Loop) به Proactor تغییر یافت.")
 
 
 class RajaBooker:
@@ -54,19 +70,11 @@ class RajaBooker:
             except Exception as e:
                 print(f"خطا در آپدیت وضعیت دیتابیس: {e}")
 
-    # async def _handle_ar_capcha(self):
-        try:
-            result = arvancloud.solve("https://raja.ir/")
-            if result.cookies and "__arcsjs" in result.cookies:
-                await self.context.add_cookies([...])
-                print("کوکی‌ها تزریق شدند.")
-            else:
-                print("کوکی دریافت نشد، ممکن است چالش فعال نباشد.")
-        except Exception as e:
-            print(f"خطا در حل چالش آروان‌کلاد: {e}. ادامه بدون کوکی...")
-
     async def start(self):
         try:
+            # 👇 فراخوانی تابع تنظیم حلقه در همان ابتدای کار
+            _ensure_proactor_loop() 
+            
             self.account = await RajaAccount.objects.aget(id=self.account_id)
             print("اطلاعات کاربر")
             data = {
@@ -88,14 +96,14 @@ class RajaBooker:
                     ]
                 )
 
-            result = arvancloud.solve("https://raja.ir/")
             async with async_playwright() as p:
                 print("در حال راه‌اندازی مرورگر با Patchright...")
 
                 self.context = await p.chromium.launch_persistent_context(
                     user_data_dir=str(BASE_DIR / "raja_user_data"),
-                    channel="chrome",
+                    # channel="chrome",
                     headless=self.headless,
+                    executable_path=r"C:\Program Files\Google\Chrome\Application\chrome.exe",
                     no_viewport=True,
                     slow_mo=100,
                     args=browser_args,
@@ -227,8 +235,8 @@ class RajaBooker:
 
         # تعداد مسافران
         total_passengers = len(self.passengers)
-        await self.page.locator("#dropdownPassenger").click()
-        await self._human_delay()
+        # await self.page.locator("#dropdownPassenger").click()
+        # await self._human_delay()
 
         plus_adult_btn = self.page.locator("button[title='plus-adult']")
         for _ in range(total_passengers - 1):
@@ -368,63 +376,11 @@ class RajaBooker:
         await self.page.locator("button.btn-success:has-text('پرداخت')").click()
         await self._human_delay()
 
-        # ✅ تلاش برای حل خودکار کپچا با PyPasser
-        print("در حال تلاش برای حل خودکار کپچا...")
-        try:
-            result = await arcaptcha.asolve(
-                page=self.page,
-                site_key="t8xr2hpxue",  # کلیدی که از اسکریپت پیدا کردید
-                domain="raja.ir"
-            )
-
-            if result.is_solved:
-                print("کپچا با موفقیت حل شد.")
-            else:
-                print("حل خودکار ناموفق بود. نیاز به حل دستی.")
-                await self._update_status(
-                    Reservation.ReservationStatus.PENDING,
-                    error_message="نیاز به حل دستی کپچا",
-                )
-                if not self.headless:
-                    await self.page.pause()  # توقف برای حل دستی از طریق VNC
-        except Exception as e:
-            print(f"خطا در حل کپچا: {e}")
-            await self._update_status(
-                Reservation.ReservationStatus.PENDING,
-                error_message=f"خطای کپچا: {e}",
-            )
-            if not self.headless:
-                await self.page.pause()
-
-        # for attempt in range(3):
-        #     try:
-        #         bank_btn = self.page.locator("div.DivBank").first
-        #         await bank_btn.wait_for(state="visible", timeout=10000)
-        #         await bank_btn.click()
-        #         print("بانک انتخاب شد.")
-        #         break
-        #     except Exception as e:
-        #         print(f"تلاش {attempt + 1} برای پیدا کردن بانک ناموفق بود: {e}")
-        #         await asyncio.sleep(2)
-
-        # کلیک روی پرداخت نهایی
-        # try:
-        #     final_payment_btn = self.page.locator(
-        #         "button.btn-success:has-text('پرداخت')"
-        #     )
-        #     await final_payment_btn.wait_for(state="visible", timeout=10000)
-        #     await final_payment_btn.click()
-        #     print("کلیک روی پرداخت نهایی انجام شد.")
-        # except Exception as e:
-        #     print(f"دکمه پرداخت نهایی پیدا نشد یا خطا داد: {e}")
-
-        # صبر میکنیم تا URL تغییر کند (به درگاه بانک منتقل شود)
-        # await asyncio.sleep(5)
+        await self.page.pause()
 
         payment_url = self.page.url
         print(f"لینک درگاه نهایی: {payment_url}")
         await self._update_status(
             Reservation.ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
         )
-        print("به درگاه پرداخت رسیدیم برای برای حارج شدن از مرورگر فقط مرورگر رو ببندید")
-        await self.page.pause()
+        print("به درگاه پرداخت رسیدیم برای خارج شدن از مرورگر فقط مرورگر رو ببندید")

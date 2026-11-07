@@ -9,11 +9,14 @@ https://docs.djangoproject.com/en/6.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
+import sys
 
 from pathlib import Path
 
 from decouple import config, Csv
 from kombu import Queue
+
+IS_WINDOWS = sys.platform.startswith('win')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,7 +30,7 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", cast=bool, default=True)
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv(), default="")
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv(), default="*")
 
 
 # Application definition
@@ -91,11 +94,7 @@ DATABASES = {
         "PORT": config("DB_PORT", default=6432, cast=int),
         "CONN_MAX_AGE": config("DB_CONN_MAX_AGE", default=60, cast=int),
         "CONN_HEALTH_CHECKS": config("DB_CONN_HEALTH_CHECKS", default=True, cast=bool),
-        "DISABLE_SERVER_SIDE_CURSORS": config(
-            "DB_DISABLE_SERVER_SIDE_CURSORS", default=True, cast=bool
-        ),
     },
-    "OPTIONS": {"prepare_threshold": None},
 }
 
 
@@ -225,12 +224,14 @@ CACHES = {
             "SOCKET_TIMEOUT": config("SOCKET_DEFAULT_TIMEOUT", default=10, cast=int),
             "TIMEOUT": config(
                 "CACHE_DEFAULT_TIMEOUT", cast=int, default=1209600
-            ),  # fot two week
+            ),
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # 👇 این خط را اضافه کنید
+            "maint_notifications_config": {"enabled": False},
             "CONNECTION_POOL_KWARGS": {
                 "max_connections": config(
                     "REDIS_MAX_CONNECTION", cast=int, default=15
-                ),  # Total: 5 workers × 15 = 75 connections maximum
+                ),
                 "retry_on_timeout": config(
                     "REDIS_DEFAULT_POOL_RETRY_TIMEOUT", default=True, cast=bool
                 ),
@@ -264,3 +265,13 @@ if USE_CELERY_TASK_VIEW:
     CELERY_RESULT_EXPIRES = config(
         "CELERY_RESULT_EXPIRES", cast=int, default=2592000
     )  # for 30 days
+
+
+# در فایل core/settings.py
+if IS_WINDOWS:
+    BOLT_API = [
+        "apps.core.api:api",     # مسیر فایل api.py در اپ core
+        "apps.user.api:api",     # مسیر فایل api.py در اپ user
+        "apps.ticket.api:api",   # مسیر فایل api.py در اپ ticket
+        # اگر اپلیکیشن دیگری هم api.py دارد، اینجا اضافه کنید
+    ]
