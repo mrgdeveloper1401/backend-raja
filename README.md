@@ -35,3 +35,11 @@
 ```bash
 git clone https://github.com/mrgdeveloper1401/backend-raja.git
 cd reserv-ticket-raja
+```
+---
+
+### اجرای پروژه
+```bash
+uv init -p 3.14
+ uv add -r requirements.txt --default-index=https://package-mirror.liara.ir/repository/pypi/simple
+```

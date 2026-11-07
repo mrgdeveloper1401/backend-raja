@@ -20,5 +20,5 @@ tenacity>=9.2.1
 
 # Dev / Database & Environment
 ipdb>=0.13.13
-psycopg[c,pool]>=3.3.6
+psycopg[binary]>=3.3.6
 python-decouple>=3.8
