@@ -147,10 +147,12 @@ MAILERS = {
 AUTH_USER_MODEL = "user.User"
 
 # cors
-CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", cast=Csv(), default=None)
+
 CORS_USE_DEV = config("CORS_USE_DEV", cast=bool, default=False)
 if CORS_USE_DEV:
-    CORS_ALLOWED_ORIGINS.append("http://localhost:3000")
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", cast=Csv(), default=None)
 
 # jwt token
 ACCESS_TOKEN_EXPIRE = 60 * 60
