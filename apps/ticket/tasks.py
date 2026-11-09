@@ -1,18 +1,10 @@
 # apps/ticket/tasks.py
 import asyncio
-import sys
+
 import jdatetime
 from celery import shared_task
 from .booker import RajaBooker
 from .models import Reservation
-
-
-def run_async_task(coro):
-    """اجرای یک تابع آسنکرون در یک حلقه رویداد جدید با policy صحیح در ویندوز."""
-    if sys.platform == "win32":
-        # اطمینان از استفاده از ProactorEventLoop که از subprocess پشتیبانی می‌کند
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    asyncio.run(coro)
 
 
 @shared_task(queue="booker", time_limit=3600)
@@ -26,9 +18,19 @@ def process_reservation_task(reservation_id):
     travel_date_jalali = jdatetime.date.fromgregorian(
         date=reservation.order.travel_date
     ).strftime("%Y-%m-%d")
+
     birth_date_jalali = jdatetime.date.fromgregorian(
         date=reservation.order.passenger.birth_date
     ).strftime("%Y/%m/%d")
+
+    to_date = (
+        reservation.order.to_date
+        if reservation.order.trip_type == "outbound_and_return"
+        else None
+    )
+    to_date_jalali = None
+    if to_date:
+        to_date_jalali = jdatetime.date.fromgregorian(date=to_date).strftime("%Y-%m-%d")
 
     # آماده‌سازی اطلاعات مسافران
     passengers_data = [
@@ -51,7 +53,11 @@ def process_reservation_task(reservation_id):
         headless=False,  # در سرور True بشه
         reservation_id=reservation.id,  # آیدی رزرو رو پاس می‌دیم تا وضعیتش رو آپدیت کنه
         travel_phone=reservation.order.passenger.phone,
+        is_want_and_return=reservation.order.trip_type == "outbound_and_return",
+        to_date=to_date_jalali,
+        passenger_type=reservation.order.passenger_type,
+        coupe_filter=reservation.coupe_type,
+        order_by_filter=reservation.order_by,
     )
 
-    # 👇 فراخوانی تابع کمکی برای اجرای تسک آسنکرون
-    run_async_task(booker.start())
+    return asyncio.run(booker.start())

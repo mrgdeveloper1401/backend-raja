@@ -13,6 +13,4 @@ env_folder
 .vscode
 raja_user_data
 staticfiles
-pyproject.toml
-uv.lock
 .idea

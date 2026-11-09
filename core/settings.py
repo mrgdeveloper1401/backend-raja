@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/6.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
+
 import sys
 
 from pathlib import Path
@@ -16,7 +17,7 @@ from pathlib import Path
 from decouple import config, Csv
 from kombu import Queue
 
-IS_WINDOWS = sys.platform.startswith('win')
+IS_WINDOWS = sys.platform.startswith("win")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -32,9 +33,7 @@ DEBUG = config("DEBUG", cast=bool, default=True)
 
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv(), default="*")
 
-
 # Application definition
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -84,6 +83,7 @@ WSGI_APPLICATION = "core.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
+USE_PG_BOUNCER = config("USE_PG_BOUNCER", cast=bool, default=False)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -94,9 +94,11 @@ DATABASES = {
         "PORT": config("DB_PORT", default=6432, cast=int),
         "CONN_MAX_AGE": config("DB_CONN_MAX_AGE", default=60, cast=int),
         "CONN_HEALTH_CHECKS": config("DB_CONN_HEALTH_CHECKS", default=True, cast=bool),
+        "DISABLE_SERVER_SIDE_CURSORS": True if USE_PG_BOUNCER else False,
     },
 }
-
+if USE_PG_BOUNCER:
+    DATABASES["OPTIONS"]["prepare_threshold"] = None
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
@@ -147,7 +149,6 @@ MAILERS = {
 AUTH_USER_MODEL = "user.User"
 
 # cors
-
 CORS_USE_DEV = config("CORS_USE_DEV", cast=bool, default=False)
 if CORS_USE_DEV:
     CORS_ALLOW_ALL_ORIGINS = True
@@ -224,16 +225,10 @@ CACHES = {
                 "SOCKET_DEFAULT_CONNECT_TIMEOUT", default=5, cast=int
             ),
             "SOCKET_TIMEOUT": config("SOCKET_DEFAULT_TIMEOUT", default=10, cast=int),
-            "TIMEOUT": config(
-                "CACHE_DEFAULT_TIMEOUT", cast=int, default=1209600
-            ),
+            "TIMEOUT": config("CACHE_DEFAULT_TIMEOUT", cast=int, default=1209600),
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            # 👇 این خط را اضافه کنید
-            "maint_notifications_config": {"enabled": False},
             "CONNECTION_POOL_KWARGS": {
-                "max_connections": config(
-                    "REDIS_MAX_CONNECTION", cast=int, default=15
-                ),
+                "max_connections": config("REDIS_MAX_CONNECTION", cast=int, default=15),
                 "retry_on_timeout": config(
                     "REDIS_DEFAULT_POOL_RETRY_TIMEOUT", default=True, cast=bool
                 ),
@@ -256,9 +251,11 @@ CELERY_RESULT_BACKEND = config(
 )  # نتیجه تسک در کجا ریخته شود
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6381/3")
 CELERY_TASK_ACKS_LATE = config("CELERY_ACKS_LATE", cast=bool, default=False)
-CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=3)
-# CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_TASK_QUEUES = (Queue("booker"), Queue("celery"))
+if not IS_WINDOWS:
+    CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=5)
+else:
+    CELERY_WORKER_CONCURRENCY = 1
 
 USE_CELERY_TASK_VIEW = config("USE_CELERY_TASK_VIEW", cast=bool, default=True)
 if USE_CELERY_TASK_VIEW:
@@ -272,8 +269,8 @@ if USE_CELERY_TASK_VIEW:
 # در فایل core/settings.py
 if IS_WINDOWS:
     BOLT_API = [
-        "apps.core.api:api",     # مسیر فایل api.py در اپ core
-        "apps.user.api:api",     # مسیر فایل api.py در اپ user
-        "apps.ticket.api:api",   # مسیر فایل api.py در اپ ticket
+        "apps.core.api:api",  # مسیر فایل api.py در اپ core
+        "apps.user.api:api",  # مسیر فایل api.py در اپ user
+        "apps.ticket.api:api",  # مسیر فایل api.py در اپ ticket
         # اگر اپلیکیشن دیگری هم api.py دارد، اینجا اضافه کنید
     ]

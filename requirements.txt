@@ -20,5 +20,5 @@ tenacity>=9.2.1
 
 # Dev / Database & Environment
 ipdb>=0.13.13
-psycopg[binary]>=3.3.6
+psycopg[binary,pool]>=3.3.6 # if run local user package (binary) else use psycopg[c]
 python-decouple>=3.8

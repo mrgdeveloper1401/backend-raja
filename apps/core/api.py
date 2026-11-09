@@ -61,4 +61,3 @@ async def stream_reservation_logs(reservation_id: int) -> AsyncGenerator[dict, N
             break
 
         await asyncio.sleep(1)
-

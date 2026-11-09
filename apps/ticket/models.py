@@ -1,4 +1,8 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.utils import timezone
+
 from apps.core.models import TimestampMixin, SoftDeleteMixin
 from django.utils.translation import gettext_lazy as _
 
@@ -32,6 +36,10 @@ class Order(TimestampMixin, SoftDeleteMixin):
         WOMAN = "woman", _("ویژه خواهران")
         NORMAL = "normal", _("مسافرین عادی")
 
+    class TripType(models.TextChoices):
+        OUT_BOUND = "outbound", _("تک سفر")
+        OUT_BOUND_AND_RETURN = "outbound_and_return", _("مسیر رفت و برگشت")
+
     passenger = models.ForeignKey(
         Passenger,
         on_delete=models.DO_NOTHING,
@@ -40,13 +48,39 @@ class Order(TimestampMixin, SoftDeleteMixin):
     )
     origin = models.CharField(max_length=100, verbose_name="مبدا")
     destination = models.CharField(max_length=100, verbose_name="مقصد")
-    travel_date = models.DateField(verbose_name="تاریخ سفر")
+    trip_type = models.CharField(
+        max_length=19, choices=TripType.choices, default=TripType.OUT_BOUND
+    )
+    travel_date = models.DateField(
+        verbose_name="تاریخ سفر",
+        blank=True,
+        null=True,
+        help_text=_(
+            "تاریخ سفر برای هنگامی که مسیر فقط برای تک سفر باشد یا برای مسیر رفت درون سفرهای رفت و برگشت"
+        ),
+    )
+    to_date = models.DateField(_("تاریخ برگشت"), blank=True, null=True)
     passenger_type = models.CharField(
         max_length=20,
         choices=PassengerType.choices,
         default=PassengerType.NORMAL,
         verbose_name="نوع بلیط",
     )
+
+    def clean(self):
+        if self.trip_type == self.TripType.OUT_BOUND and self.to_date:
+            raise ValidationError(_("حالت تک سفره مسیر برگشت ندارد"))
+        if self.trip_type == self.TripType.OUT_BOUND_AND_RETURN and self.travel_date:
+            if not self.to_date:
+                raise ValidationError(_("برای مسیر رفت و برگشت تاریخ برگشت الزامی است"))
+            if self.to_date < self.travel_date:
+                raise ValidationError(
+                    _("تاریخ برگشت نمیتواند کوچک تر از تاریخ رفت باشد")
+                )
+        if self.travel_date < timezone.now().date():
+            raise ValidationError(_("تاریخ رفت نمیتواند کوچک تر از تاریخ امروز باشد"))
+        if self.to_date and self.to_date < timezone.now().date():
+            raise ValidationError(_("تاریخ برگشت نمیتواند کوچک تر از تایم امروز باشد"))
 
     class Meta:
         db_table = "orders"
@@ -78,6 +112,17 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
         SUCCESS = "success", _("موفق")
         FAILED = "failed", _("ناموفق")
 
+    class CoupeType(models.TextChoices):
+        FOUR = "four", _("چهار  تخته")
+        SIX = "six", _("شش تخته")
+        FOR_ROW = "for_row", _("چهار ردیفه")
+
+    class OrderBy(models.TextChoices):
+        CLOCK = "clock", _("ساعت حرکت")
+        CHEAP = "cheap", _("ارزان ترین")
+        EXPENSIVE = "expensive", _("گران ترین")
+        OWNER = "owner", _("مالک")
+
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,
@@ -98,10 +143,27 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
     )
     error_message = models.TextField(blank=True, null=True, verbose_name="پیام خطا")
     celery_task_id = models.CharField(
-        max_length=50,
+        max_length=50, blank=True, null=True, verbose_name="شناسه تسک سلری"
+    )
+    find_train_number = models.CharField(
+        _("شماره قطار پیدا شده"), blank=True, null=True, max_length=10, default=0
+    )
+    number_reservation = models.PositiveSmallIntegerField(
+        _("تعداد رزور"),
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        default=1,
+        db_default=1,
+    )
+    coupe_type = models.CharField(
+        _("نوع کوپه"), max_length=8, blank=True, null=True, choices=CoupeType.choices
+    )
+    order_by = models.CharField(
+        _("فیلتر بر اساس"),
+        max_length=15,
         blank=True,
         null=True,
-        verbose_name="شناسه تسک سلری"
+        choices=OrderBy.choices,
+        default=OrderBy.CLOCK,
     )
 
     class Meta:

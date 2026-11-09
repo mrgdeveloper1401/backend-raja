@@ -1,3 +1,4 @@
+import jdatetime
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
@@ -13,11 +14,19 @@ class PassengerAdmin(admin.ModelAdmin):
         "first_name",
         "last_name",
         "birth_date",
+        "show_jdatetime",
         "gender",
     )
     list_display_links = list_display
     search_fields = ("=phone",)
     search_help_text = _("برای جست و جو میتوانید از شماره تلفن کاربر استفاده کنید")
+
+    def show_jdatetime(self, obj):
+        return jdatetime.date.fromgregorian(
+            year=obj.birth_date.year, month=obj.birth_date.month, day=obj.birth_date.day
+        )
+
+    show_jdatetime.short_description = _("تاریخ تولد شمسی")
 
 
 @admin.register(Order)
@@ -35,6 +44,8 @@ class OrderAdmin(admin.ModelAdmin):
     list_display_links = list_display
     ordering = ("-id",)
     list_select_related = ("passenger",)
+    search_fields = ("=passenger__phone",)
+    search_help_text = _("برای جست و جو میتوانید از شماره تماس مسافر استفاده کنید")
 
     def get_phone(self, obj):
         return obj.passenger.phone

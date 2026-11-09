@@ -1,36 +1,19 @@
 # apps/ticket/booker.py
 import asyncio
-import sys  # 👈 اضافه شد
+import re
+
 import traceback
 import random
 from pathlib import Path
 
-from decouple import config
+
 from patchright.async_api import async_playwright
-# from pypasser.antibot import arvancloud
-# from pypasser.captcha import arcaptcha
 
 from apps.ticket.models import Reservation
 from apps.user.models import RajaAccount
+from core.settings import IS_WINDOWS
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-USE_DOCKER = config("USE_DOCKER", cast=bool, default=False)
-
-
-# 👇 تابع جدید برای تنظیم حلقه رویداد ویندوز
-def _ensure_proactor_loop():
-    """
-    اطمینان از اینکه ویندوز از ProactorEventLoop استفاده می‌کند.
-    این حلقه برای اجرای Subprocess (که Patchright/Playwright نیاز دارد) الزامی است.
-    """
-    if sys.platform == "win32":
-        if not isinstance(
-            asyncio.get_event_loop_policy(), 
-            asyncio.WindowsProactorEventLoopPolicy
-        ):
-            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-            print("✅ حلقه رویداد (Event Loop) به Proactor تغییر یافت.")
 
 
 class RajaBooker:
@@ -41,9 +24,15 @@ class RajaBooker:
         destination,
         travel_date,
         passengers,
+        passenger_type,
         headless=False,
         reservation_id=None,
         travel_phone=None,
+        browser=None,
+        is_want_and_return=False,
+        to_date=None,
+        coupe_filter=None,
+        order_by_filter=None,
     ):
         self.account_id = account_id
         self.origin = origin
@@ -55,62 +44,59 @@ class RajaBooker:
         self.travel_phone = travel_phone
         self.page = None
         self.context = None
-
-    async def _update_status(self, status, payment_url=None, error_message=None):
-        if self.reservation_id:
-            try:
-                reservation = await Reservation.objects.aget(id=self.reservation_id)
-                reservation.status = status
-                if payment_url:
-                    reservation.payment_url = payment_url
-                if error_message:
-                    reservation.error_message = error_message
-                await reservation.asave()
-                print(f"وضعیت رزرو به {status} تغییر یافت.")
-            except Exception as e:
-                print(f"خطا در آپدیت وضعیت دیتابیس: {e}")
+        self._shared_task = browser
+        self.is_want_and_return = is_want_and_return
+        self.to_date = to_date
+        self.passenger_type = passenger_type
+        self.coupe_filter = coupe_filter
+        self.order_by_filter = order_by_filter
 
     async def start(self):
+        if self._shared_task:
+            browser = self._shared_task
+            self.context = await browser.new_context()
+            should_close_browser = False
+        else:
+            playwright = await async_playwright().start()
+            browser = await playwright.chromium.launch(headless=self.headless)
+            self.context = await browser.new_context()
+            should_close_browser = True
         try:
-            # 👇 فراخوانی تابع تنظیم حلقه در همان ابتدای کار
-            _ensure_proactor_loop() 
-            
             self.account = await RajaAccount.objects.aget(id=self.account_id)
-            print("اطلاعات کاربر")
+
             data = {
                 "origin": self.origin,
                 "destination": self.destination,
                 "travel_date": self.travel_date,
+                "to_date": self.to_date,
+                "is_want_and_return": self.is_want_and_return,
                 "travel_phone": self.travel_phone,
                 "passengers": self.passengers,
             }
-            print(data)
+            print("اطلاعات کاربر", data)
+
             browser_args = [
                 "--disable-blink-features=AutomationControlled",
             ]
-
-            if USE_DOCKER:
-                browser_args.extend(
-                    [
-                        "--disable-dev-shm-usage",
-                    ]
-                )
 
             async with async_playwright() as p:
                 print("در حال راه‌اندازی مرورگر با Patchright...")
 
                 self.context = await p.chromium.launch_persistent_context(
                     user_data_dir=str(BASE_DIR / "raja_user_data"),
-                    # channel="chrome",
+                    channel="chrome",
                     headless=self.headless,
-                    executable_path=r"C:\Program Files\Google\Chrome\Application\chrome.exe",
                     no_viewport=True,
                     slow_mo=100,
                     args=browser_args,
                 )
+                if IS_WINDOWS:
+                    self.context.executable_path = (
+                        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                    )
+
                 self.page = await self.context.new_page()
                 self.page.set_default_timeout(10000)
-                # await self._handle_ar_capcha()
                 await self.page.goto("https://raja.ir/", wait_until="networkidle")
 
                 # ✅ پاک کردن state سشن قبلی (بدون لمس کوکی‌های لاگین)
@@ -123,15 +109,18 @@ class RajaBooker:
                 await self.page.goto("https://raja.ir/", wait_until="networkidle")
 
                 # ۱. چک لاگین
-                is_logged_in = await self._check_login()
-                if not is_logged_in:
-                    print("شروع لاگین...")
-                    await self._do_login()
-                    print("لاگین انجام شد.")
+                # is_logged_in = await self._check_login()
+                # if not is_logged_in:
+                print("شروع لاگین...")
+                await self._do_login()
+                print("لاگین انجام شد.")
 
                 # ۲. پر کردن فرم جستجو
                 print("ورود موفق! شروع تنظیم فرم...")
                 await self._fill_search_form()
+
+                # فیلتر کردن نتایج
+                await self._filter_search_form()
 
                 # ۳. رصد و رزرو
                 print("شروع رصد...")
@@ -156,6 +145,23 @@ class RajaBooker:
         finally:
             if self.context:
                 await self.context.close()
+                if should_close_browser:
+                    await browser.close()
+                    await playwright.stop()
+
+    async def _update_status(self, status, payment_url=None, error_message=None):
+        if self.reservation_id:
+            try:
+                reservation = await Reservation.objects.aget(id=self.reservation_id)
+                reservation.status = status
+                if payment_url:
+                    reservation.payment_url = payment_url
+                if error_message:
+                    reservation.error_message = error_message
+                await reservation.asave()
+                print(f"وضعیت رزرو به {status} تغییر یافت.")
+            except Exception as e:
+                print(f"خطا در آپدیت وضعیت دیتابیس: {e}")
 
     # ====================== متدهای انسانی ======================
 
@@ -222,32 +228,122 @@ class RajaBooker:
         ).first.click()
         await self._human_delay()
 
-        # انتخاب تاریخ
-        await self.page.locator("button.icon-calendar").click()
-        await self._human_delay()
+        # حالت رفت یا رفت و برگشت
+        if self.is_want_and_return:
+            # ۱. انتخاب حالت رفت و برگشت
+            await self.page.locator("#twoTripticket").click()
+            await self._human_delay()
 
-        year, month, day = self.travel_date.split("-")
-        date_locator = self.page.locator(
-            f"div.ngb-dp-day:not(.disabled):has-text('{day}')"
-        ).first
-        await date_locator.click()
-        await self._human_delay()
+            # ۲. باز کردن تقویم رفت و برگشت
+            date_locator = self.page.locator(".round-trip button.icon-calendar").first
+            await date_locator.click()
+            await self._human_delay()
+
+            # ۳. انتخاب تاریخ رفت (از self.travel_date که به شمسی است)
+            year, month, day = self.travel_date.split("-")
+
+            # اما اگر تاریخ‌ها نزدیک باشند، معمولاً در همان ماه باز می‌شود.
+            go_day_locator = self.page.locator(
+                f"div.ngb-dp-day:not(.disabled):has-text('{day}')"
+            ).first
+            await go_day_locator.click()
+            await self._human_delay()
+
+            # ۴. انتخاب تاریخ برگشت (از self.to_date)
+            return_year, return_month, return_day = self.to_date.split("-")
+            return_day_locator = self.page.locator(
+                f"div.ngb-dp-day:not(.disabled):has-text('{return_day}')"
+            ).first
+            await return_day_locator.click()
+            await self._human_delay()
+        else:
+            # حالت تک سفر
+            await self.page.locator("button.icon-calendar").click()
+            await self._human_delay()
+
+            year, month, day = self.travel_date.split("-")
+            date_locator = self.page.locator(
+                f"div.ngb-dp-day:not(.disabled):has-text('{day}')"
+            ).first
+            await date_locator.click()
+            await self._human_delay()
 
         # تعداد مسافران
-        total_passengers = len(self.passengers)
+        # total_passengers = len(self.passengers)
         # await self.page.locator("#dropdownPassenger").click()
         # await self._human_delay()
 
-        plus_adult_btn = self.page.locator("button[title='plus-adult']")
-        for _ in range(total_passengers - 1):
-            await plus_adult_btn.click()
-            await self._human_delay()
-        await self.page.locator("body").click()
+        # کلیک بر روی دکمه تعداد مسافران
+        # plus_adult_btn = self.page.locator("button[title='plus-adult']")
+        # for _ in range(total_passengers - 1):
+        #     await plus_adult_btn.click()
+        #     await self._human_delay()
+        # await self.page.locator("body").click()
+        # await self._human_delay()
+
+        # انتخاب نوع مسافرین
+        print(f"در حال انتخاب نوع بلیط: {self.passenger_type}")
+        await self.page.locator("#dropdownTikcetType").click()
         await self._human_delay()
+        type_map = {
+            "normal": "مسافرین عادی",
+            "man": "ویژه برادران",
+            "woman": "ویژه خواهران",
+        }
+        target_text = type_map.get(self.passenger_type, "مسافرین عادی")
+        option_locator = self.page.locator(
+            f"label.type-passenger:has-text('{target_text}')"
+        )
+        await option_locator.click()
+        await self._human_delay()
+        print(f"نوع بلیط {target_text} انتخاب شد ")
 
         # جستجو
         await self.page.locator("#btnsearchticket").click()
         await self._human_delay()
+
+    async def _filter_search_form(self):
+        # ۱. فیلتر نوع کوپه (سالن)
+        if self.coupe_filter:
+            print(f"در حال اعمال فیلتر نوع کوپه: {self.coupe_filter}")
+
+            # نگاشت مقادیر مدل به id چک‌باکس‌های سایت
+            coupe_map = {
+                "four": "default1-1",  # کوپه ای چهار تخته
+                "six": "default1-2",  # کوپه ای شش تخته
+                "for_row": "default1-3",  # سالنی 4 ردیفه
+            }
+
+            target_id = coupe_map.get(self.coupe_filter)
+            if target_id:
+                # پیدا کردن چک‌باکس با id و کلیک روی آن
+                checkbox = self.page.locator(f"#{target_id}")
+                await checkbox.click()
+                await self._human_delay()
+                print("فیلتر نوع کوپه اعمال شد.")
+
+        # ۲. فیلتر مرتب‌سازی (Sort)
+        if self.order_by_filter:
+            print(f"در حال اعمال فیلتر مرتب‌سازی: {self.order_by_filter}")
+
+            # نگاشت مقادیر مدل به متن دکمه‌های روی صفحه
+            order_by_map = {
+                "clock": "ساعت حرکت",
+                "cheap": "ارزانترین",
+                "expensive": "گرانترین",
+                "owner": "مالک",
+            }
+
+            target_text = order_by_map.get(self.order_by_filter)
+            if target_text:
+                # پیدا کردن دکمه داخل کلاس sort که متن مورد نظر را دارد
+                # از locator(".sort button", has_text=...) استفاده می‌کنیم تا دقیقاً دکمه‌های مرتب‌سازی را هدف بگیریم
+                sort_button = self.page.locator(".sort button", has_text=target_text)
+
+                # کلیک روی دکمه
+                await sort_button.click()
+                await self._human_delay()
+                print(f"مرتب‌سازی بر اساس {target_text} اعمال شد.")
 
     async def _monitor_and_book(self):
         await self._update_status(Reservation.ReservationStatus.MONITORING)
@@ -261,6 +357,30 @@ class RajaBooker:
 
                 if await book_btn.is_visible() and await book_btn.is_enabled():
                     print("ظرفیت پیدا شد! کلیک روی رزرو بلیت...")
+
+                    # ✅ استخراج شماره قطار قبل از کلیک روی دکمه
+                    try:
+                        # پیدا کردن المان شماره قطار در همان کارت (با استفاده از کلاس‌ها)
+                        train_num_element = self.page.locator(
+                            ".train-result .train-number"
+                        ).first
+
+                        if await train_num_element.count() > 0:
+                            text_content = await train_num_element.inner_text()
+                            # استخراج اعداد از متن (مثلاً از "شماره قطار: 480" عدد 480 را جدا می‌کند)
+                            match = re.search(r"\d+", text_content)
+                            if match:
+                                train_number = match.group()
+                                print(f"شماره قطار پیدا شده: {train_number}")
+
+                                # ✅ آپدیت دیتابیس
+                                if self.reservation_id:
+                                    await Reservation.objects.filter(
+                                        id=self.reservation_id
+                                    ).aupdate(find_train_number=train_number)
+                    except Exception as e:
+                        print(f"خطا در استخراج شماره قطار: {e}")
+
                     await book_btn.click()
                     break
                 else:
@@ -376,11 +496,11 @@ class RajaBooker:
         await self.page.locator("button.btn-success:has-text('پرداخت')").click()
         await self._human_delay()
 
-        await self.page.pause()
-
         payment_url = self.page.url
         print(f"لینک درگاه نهایی: {payment_url}")
         await self._update_status(
             Reservation.ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
         )
         print("به درگاه پرداخت رسیدیم برای خارج شدن از مرورگر فقط مرورگر رو ببندید")
+
+        await self.page.pause()
