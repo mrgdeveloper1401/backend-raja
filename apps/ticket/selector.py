@@ -119,7 +119,7 @@ async def get_paginated_orders_selector(
                 "travel_date": res.reservation.order.travel_date,
                 "to_date": res.reservation.order.to_date,
                 "passenger_type": res.reservation.order.passenger_type,
-                "trip_type": res.reservation.order.trip_type
+                "trip_type": res.reservation.order.trip_type,
             }
         )
 
@@ -252,15 +252,9 @@ async def get_raja_account_options_selector():
 
 async def dashboard_chart_status_selector():
     stats = await ReservationAttempt.objects.aaggregate(
-        pending_count=Count(
-            "id", filter=Q(status=ReservationStatus.PENDING)
-        ),
-        monitoring_count=Count(
-            "id", filter=Q(status=ReservationStatus.MONITORING)
-        ),
-        booking_count=Count(
-            "id", filter=Q(status=ReservationStatus.BOOKING)
-        ),
+        pending_count=Count("id", filter=Q(status=ReservationStatus.PENDING)),
+        monitoring_count=Count("id", filter=Q(status=ReservationStatus.MONITORING)),
+        booking_count=Count("id", filter=Q(status=ReservationStatus.BOOKING)),
         redirect_gateway_count=Count(
             "id", filter=Q(status=ReservationStatus.REDIRECT_GATEWAY)
         ),

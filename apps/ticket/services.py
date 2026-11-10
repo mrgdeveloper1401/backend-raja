@@ -43,8 +43,8 @@ async def create_order_with_reservation_selector(data: dict):
                 origin=data["origin"],
                 destination=data["destination"],
                 travel_date=data["travel_date"],
-                trip_type=data.get("trip_type"),
-                to_date=data.get("to_date", None),
+                trip_type=data.get("trip_type", "outbound"),
+                to_date=data.get("to_date"),
                 passenger_type=data.get("passenger_type", "normal"),
             )
 
@@ -52,7 +52,6 @@ async def create_order_with_reservation_selector(data: dict):
             reservation = Reservation.objects.create(
                 order_id=order.id,
                 raja_account_id=data["raja_account_id"],
-                status=ReservationStatus.PENDING,
                 coupe_type=data["coupe_type"],
                 order_by=data["order_by"],
             )

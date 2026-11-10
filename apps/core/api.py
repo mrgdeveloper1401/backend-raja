@@ -37,7 +37,9 @@ async def station():
     response_class=EventSourceResponse,
 )
 async def stream_reservation_logs(reservation_id: int) -> AsyncGenerator[dict, None]:
-    reservation = await aget_object_or_404(ReservationAttempt, reservation_id=reservation_id)
+    reservation = await aget_object_or_404(
+        ReservationAttempt, reservation_id=reservation_id
+    )
 
     task_id = reservation.celery_task_id
     if not task_id:

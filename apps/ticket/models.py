@@ -1,5 +1,4 @@
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -58,7 +57,7 @@ class Order(TimestampMixin, SoftDeleteMixin):
     origin = models.CharField(max_length=100, verbose_name="مبدا")
     destination = models.CharField(max_length=100, verbose_name="مقصد")
     trip_type = models.CharField(
-        max_length=19, choices=TripType.choices, default=TripType.OUT_BOUND
+        max_length=20, choices=TripType.choices, default=TripType.OUT_BOUND
     )
     travel_date = models.DateField(
         verbose_name="تاریخ سفر",

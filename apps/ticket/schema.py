@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, List, Literal, Union
+from typing import Optional, List, Literal, Union, Annotated
 
 from django_bolt.serializers import Serializer
 from datetime import date
@@ -55,6 +55,7 @@ class OrderListSchema(Serializer):
     to_date: Union[date, None]
     passenger_type: PassengerTypeEnum
     trip_type: TripTypeEnum
+    status: Union[str, None]
 
 
 class PaginatedOrdersSchema(Serializer):
@@ -139,12 +140,11 @@ class OrderCreateSchema(Serializer):
     origin: str
     destination: str
     travel_date: str
-    to_date: Optional[str]
+    to_date: str | None = None
     passenger_type: Literal["normal", "woman", "man"]
-    trip_type: TripTypeEnum
-    passenger_type: PassengerTypeEnum
-    coupe_type: CoupeTypeEnum
-    order_by: OrderByEnum
+    trip_type: Literal["outbound", "outbound_and_return"]
+    coupe_type: Literal["four", "six", "for_row", None]
+    order_by: Literal["clock", "cheap", "expensive", "owner"]
 
     # اکانت رجا
     raja_account_id: Union[str, int]
