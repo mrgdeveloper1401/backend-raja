@@ -9,7 +9,7 @@ from pathlib import Path
 
 from patchright.async_api import async_playwright
 
-from apps.ticket.models import Reservation
+from apps.ticket.models import Reservation, ReservationAttempt, ReservationStatus
 from apps.user.models import RajaAccount
 from core.settings import IS_WINDOWS
 
@@ -26,7 +26,8 @@ class RajaBooker:
         passengers,
         passenger_type,
         headless=False,
-        reservation_id=None,
+        # reservation_id=None,
+        attempt_id=None,
         travel_phone=None,
         browser=None,
         is_want_and_return=False,
@@ -40,11 +41,11 @@ class RajaBooker:
         self.travel_date = travel_date
         self.passengers = passengers
         self.headless = headless
-        self.reservation_id = reservation_id
+        # self.reservation_id = reservation_id
+        self.attempt_id = attempt_id
         self.travel_phone = travel_phone
         self.page = None
         self.context = None
-        self._shared_task = browser
         self.is_want_and_return = is_want_and_return
         self.to_date = to_date
         self.passenger_type = passenger_type
@@ -52,15 +53,6 @@ class RajaBooker:
         self.order_by_filter = order_by_filter
 
     async def start(self):
-        if self._shared_task:
-            browser = self._shared_task
-            self.context = await browser.new_context()
-            should_close_browser = False
-        else:
-            playwright = await async_playwright().start()
-            browser = await playwright.chromium.launch(headless=self.headless)
-            self.context = await browser.new_context()
-            should_close_browser = True
         try:
             self.account = await RajaAccount.objects.aget(id=self.account_id)
 
@@ -83,7 +75,9 @@ class RajaBooker:
                 print("در حال راه‌اندازی مرورگر با Patchright...")
 
                 self.context = await p.chromium.launch_persistent_context(
-                    user_data_dir=str(BASE_DIR / "raja_user_data"),
+                    user_data_dir=str(
+                        BASE_DIR / "raja_user_data" / f"attempt_{self.attempt_id}"
+                    ),
                     channel="chrome",
                     headless=self.headless,
                     no_viewport=True,
@@ -94,9 +88,10 @@ class RajaBooker:
                     self.context.executable_path = (
                         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
                     )
+                    self.context.channel = None
 
                 self.page = await self.context.new_page()
-                self.page.set_default_timeout(10000)
+                self.page.set_default_timeout(60000)
                 await self.page.goto("https://raja.ir/", wait_until="networkidle")
 
                 # ✅ پاک کردن state سشن قبلی (بدون لمس کوکی‌های لاگین)
@@ -139,29 +134,87 @@ class RajaBooker:
         except Exception as e:
             error_trace = traceback.format_exc()
             print(f"خطای کلی در اجرای ربات:\n{error_trace}")
-            await self._update_status(
-                Reservation.ReservationStatus.FAILED, error_message=str(e)
-            )
+            await self._update_status(ReservationStatus.FAILED, error_message=str(e))
         finally:
-            if self.context:
-                await self.context.close()
-                if should_close_browser:
-                    await browser.close()
-                    await playwright.stop()
+            await self.context.close()
 
     async def _update_status(self, status, payment_url=None, error_message=None):
-        if self.reservation_id:
+        if not self.attempt_id:
+            return
+        try:
+            attempt = await ReservationAttempt.objects.select_related(
+                "reservation"
+            ).aget(id=self.attempt_id)
+            attempt.status = status
+            if payment_url:
+                attempt.payment_url = payment_url
+            if error_message:
+                attempt.error_message = error_message
+            await attempt.asave()
+
+            # وضعیت کلی رزرو
+            reservation = attempt.reservation
+            if status == ReservationStatus.FAILED:
+                # فقط اگر همه attemptها شکست خورده باشند، وضعیت رزرو را FAILED کن
+                still_active = (
+                    await ReservationAttempt.objects.filter(
+                        reservation_id=reservation.id
+                    )
+                    .exclude(status=ReservationStatus.FAILED)
+                    .aexists()
+                )
+                if still_active:
+                    return
+            reservation.status = status
+            if payment_url and not reservation.payment_url:
+                reservation.payment_url = payment_url  # ✅ اصلاح شد
+            await reservation.asave()
+        except Exception as e:
+            print(f"خطا در آپدیت وضعیت: {e}")
+
+    async def _monitor_and_book(self):
+        await self._update_status(ReservationStatus.MONITORING)
+        print("در حال رصد قطار...")
+
+        while True:
             try:
-                reservation = await Reservation.objects.aget(id=self.reservation_id)
-                reservation.status = status
-                if payment_url:
-                    reservation.payment_url = payment_url
-                if error_message:
-                    reservation.error_message = error_message
-                await reservation.asave()
-                print(f"وضعیت رزرو به {status} تغییر یافت.")
+                book_btn = self.page.locator(
+                    "button.lock-btn:has-text('رزرو بلیت')"
+                ).first
+
+                if await book_btn.is_visible() and await book_btn.is_enabled():
+                    print("ظرفیت پیدا شد! کلیک روی رزرو بلیت...")
+
+                    # ✅ استخراج شماره قطار
+                    try:
+                        train_num_element = self.page.locator(
+                            ".train-result .train-number"
+                        ).first
+
+                        if await train_num_element.count() > 0:
+                            text_content = await train_num_element.inner_text()
+                            match = re.search(r"\d+", text_content)
+                            if match:
+                                train_number = match.group()
+                                print(f"شماره قطار پیدا شده: {train_number}")
+
+                                # ✅ آپدیت شماره قطار در Attempt (نه Reservation)
+                                if self.attempt_id:
+                                    await ReservationAttempt.objects.filter(
+                                        id=self.attempt_id
+                                    ).aupdate(find_train_number=train_number)
+                    except Exception as e:
+                        print(f"خطا در استخراج شماره قطار: {e}")
+
+                    await book_btn.click()
+                    break
+                else:
+                    await self._human_delay()
             except Exception as e:
-                print(f"خطا در آپدیت وضعیت دیتابیس: {e}")
+                await self._human_delay()
+
+        await self.page.locator("button:has-text('ادامه خرید')").click()
+        await self._human_delay()
 
     # ====================== متدهای انسانی ======================
 
@@ -345,52 +398,6 @@ class RajaBooker:
                 await self._human_delay()
                 print(f"مرتب‌سازی بر اساس {target_text} اعمال شد.")
 
-    async def _monitor_and_book(self):
-        await self._update_status(Reservation.ReservationStatus.MONITORING)
-        print("در حال رصد قطار...")
-
-        while True:
-            try:
-                book_btn = self.page.locator(
-                    "button.lock-btn:has-text('رزرو بلیت')"
-                ).first
-
-                if await book_btn.is_visible() and await book_btn.is_enabled():
-                    print("ظرفیت پیدا شد! کلیک روی رزرو بلیت...")
-
-                    # ✅ استخراج شماره قطار قبل از کلیک روی دکمه
-                    try:
-                        # پیدا کردن المان شماره قطار در همان کارت (با استفاده از کلاس‌ها)
-                        train_num_element = self.page.locator(
-                            ".train-result .train-number"
-                        ).first
-
-                        if await train_num_element.count() > 0:
-                            text_content = await train_num_element.inner_text()
-                            # استخراج اعداد از متن (مثلاً از "شماره قطار: 480" عدد 480 را جدا می‌کند)
-                            match = re.search(r"\d+", text_content)
-                            if match:
-                                train_number = match.group()
-                                print(f"شماره قطار پیدا شده: {train_number}")
-
-                                # ✅ آپدیت دیتابیس
-                                if self.reservation_id:
-                                    await Reservation.objects.filter(
-                                        id=self.reservation_id
-                                    ).aupdate(find_train_number=train_number)
-                    except Exception as e:
-                        print(f"خطا در استخراج شماره قطار: {e}")
-
-                    await book_btn.click()
-                    break
-                else:
-                    await self._human_delay()
-            except Exception as e:
-                await self._human_delay()
-
-        await self.page.locator("button:has-text('ادامه خرید')").click()
-        await self._human_delay()
-
     async def _fill_passenger_details(self):
         await self._human_delay()
         print("در حال پر کردن مشخصات مسافران...")
@@ -499,7 +506,7 @@ class RajaBooker:
         payment_url = self.page.url
         print(f"لینک درگاه نهایی: {payment_url}")
         await self._update_status(
-            Reservation.ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
+            ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
         )
         print("به درگاه پرداخت رسیدیم برای خارج شدن از مرورگر فقط مرورگر رو ببندید")
 

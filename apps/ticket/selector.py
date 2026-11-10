@@ -1,24 +1,34 @@
 from django.db.models import Count, Q, OuterRef, Subquery, Prefetch
-from django.shortcuts import aget_object_or_404
 
-from apps.ticket.models import Reservation, Passenger, Order
+from apps.ticket.models import (
+    Reservation,
+    Passenger,
+    Order,
+    ReservationStatus,
+    ReservationAttempt,
+)
 from apps.user.models import RajaAccount
 
 
 async def dashboard_status_selector():
-    stats = await Reservation.objects.aaggregate(
-        failed_count=Count("id", filter=Q(status=Reservation.ReservationStatus.FAILED)),
+    stats = await ReservationAttempt.objects.aaggregate(
+        failed_count=Count("id", filter=Q(status=ReservationStatus.FAILED)),
         success_count=Count(
-            "id", filter=Q(status=Reservation.ReservationStatus.SUCCESS)
+            "id",
+            filter=Q(
+                status__in=[
+                    ReservationStatus.SUCCESS,
+                    ReservationStatus.REDIRECT_GATEWAY,
+                ]
+            ),
         ),
         active_orders_count=Count(
             "id",
             filter=Q(
                 status__in=[
-                    Reservation.ReservationStatus.PENDING,
-                    Reservation.ReservationStatus.MONITORING,
-                    Reservation.ReservationStatus.BOOKING,
-                    Reservation.ReservationStatus.REDIRECT_GATEWAY,
+                    ReservationStatus.PENDING,
+                    ReservationStatus.MONITORING,
+                    ReservationStatus.BOOKING,
                 ]
             ),
         ),
@@ -42,8 +52,6 @@ async def five_last_reservations_selector():
                 "origin": order.origin,
                 "destination": order.destination,
                 "travel_date": order.travel_date,
-                "status": reservation.status,
-                "status_label": reservation.get_status_display(),
             }
         )
         if len(results) == 5:
@@ -60,36 +68,33 @@ async def get_paginated_orders_selector(
     page_size: int = 20,
 ):
     # واکشی اولیه با روابط (برای جلوگیری از N+1)
-    queryset = Reservation.objects.select_related("order__passenger").all()
+    queryset = ReservationAttempt.objects.select_related(
+        "reservation__order__passenger"
+    ).all()
 
     # ۱. فیلتر تب‌ها
     if tab == "active":
         queryset = queryset.filter(
             status__in=[
-                Reservation.ReservationStatus.PENDING,
-                Reservation.ReservationStatus.MONITORING,
-                Reservation.ReservationStatus.BOOKING,
-                Reservation.ReservationStatus.REDIRECT_GATEWAY,
+                ReservationStatus.PENDING,
+                ReservationStatus.MONITORING,
+                ReservationStatus.BOOKING,
             ]
         )
     elif tab == "success":
-        queryset = queryset.filter(status=Reservation.ReservationStatus.SUCCESS)
+        queryset = queryset.filter(
+            status__in=[ReservationStatus.SUCCESS, ReservationStatus.REDIRECT_GATEWAY]
+        )
     elif tab == "failed":
-        queryset = queryset.filter(status=Reservation.ReservationStatus.FAILED)
+        queryset = queryset.filter(status=ReservationStatus.FAILED)
 
     # ۲. فیلتر جستجو (بر اساس کد سفارش، نام مسافر، مبدا، مقصد)
     if search:
-        queryset = queryset.filter(
-            Q(id__icontains=search)
-            | Q(order__passenger__first_name=search)
-            | Q(order__passenger__last_name=search)
-            | Q(order__origin=search)
-            | Q(order__destination=search)
-        )
+        queryset = queryset.filter(reservation__order__phone=search)
 
     # ۳. فیلتر تاریخ
     if date:
-        queryset = queryset.filter(order__travel_date=date)
+        queryset = queryset.filter(reservation__order__travel_date=date)
 
     # ۴. مرتب‌سازی
     queryset = queryset.order_by("-id")
@@ -98,6 +103,7 @@ async def get_paginated_orders_selector(
     total = await queryset.acount()
 
     # ۶. صفحه‌بندی
+    # TODO, optimize
     offset = (page - 1) * page_size
     # استفاده از async for برای واکشی محدود
     items = []
@@ -106,11 +112,14 @@ async def get_paginated_orders_selector(
             {
                 "id": res.id,
                 "status": res.status,
-                "passenger_name": f"{res.order.passenger.first_name} {res.order.passenger.last_name}",
-                "passenger_phone": res.order.passenger.phone,
-                "origin": res.order.origin,
-                "destination": res.order.destination,
-                "travel_date": res.order.travel_date,
+                "passenger_name": f"{res.reservation.order.passenger.first_name} {res.reservation.order.passenger.last_name}",
+                "passenger_phone": res.reservation.order.passenger.phone,
+                "origin": res.reservation.order.origin,
+                "destination": res.reservation.order.destination,
+                "travel_date": res.reservation.order.travel_date,
+                "to_date": res.reservation.order.to_date,
+                "passenger_type": res.reservation.order.passenger_type,
+                "trip_type": res.reservation.order.trip_type
             }
         )
 
@@ -242,31 +251,28 @@ async def get_raja_account_options_selector():
 
 
 async def dashboard_chart_status_selector():
-    stats = await Reservation.objects.aaggregate(
+    stats = await ReservationAttempt.objects.aaggregate(
         pending_count=Count(
-            "id", filter=Q(status=Reservation.ReservationStatus.PENDING)
+            "id", filter=Q(status=ReservationStatus.PENDING)
         ),
         monitoring_count=Count(
-            "id", filter=Q(status=Reservation.ReservationStatus.MONITORING)
+            "id", filter=Q(status=ReservationStatus.MONITORING)
         ),
         booking_count=Count(
-            "id", filter=Q(status=Reservation.ReservationStatus.BOOKING)
+            "id", filter=Q(status=ReservationStatus.BOOKING)
         ),
         redirect_gateway_count=Count(
-            "id", filter=Q(status=Reservation.ReservationStatus.REDIRECT_GATEWAY)
+            "id", filter=Q(status=ReservationStatus.REDIRECT_GATEWAY)
         ),
-        success_count=Count(
-            "id", filter=Q(status=Reservation.ReservationStatus.SUCCESS)
-        ),
-        failed_count=Count("id", filter=Q(status=Reservation.ReservationStatus.FAILED)),
+        failed_count=Count("id", filter=Q(status=ReservationStatus.FAILED)),
         active_orders_count=Count(
             "id",
             filter=Q(
                 status__in=[
-                    Reservation.ReservationStatus.PENDING,
-                    Reservation.ReservationStatus.MONITORING,
-                    Reservation.ReservationStatus.BOOKING,
-                    Reservation.ReservationStatus.REDIRECT_GATEWAY,
+                    ReservationStatus.PENDING,
+                    ReservationStatus.MONITORING,
+                    ReservationStatus.BOOKING,
+                    ReservationStatus.REDIRECT_GATEWAY,
                 ]
             ),
         ),

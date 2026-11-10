@@ -9,7 +9,7 @@ from django_bolt import BoltAPI, EventSourceResponse
 
 from apps.core.selector import station_selector
 from apps.core.serializers import StationSerializer
-from apps.ticket.models import Reservation
+from apps.ticket.models import ReservationAttempt
 from core.settings import CELERY_RESULT_BACKEND
 
 api = BoltAPI(prefix="/api/v1/core")
@@ -37,7 +37,7 @@ async def station():
     response_class=EventSourceResponse,
 )
 async def stream_reservation_logs(reservation_id: int) -> AsyncGenerator[dict, None]:
-    reservation = await aget_object_or_404(Reservation, pk=reservation_id)
+    reservation = await aget_object_or_404(ReservationAttempt, reservation_id=reservation_id)
 
     task_id = reservation.celery_task_id
     if not task_id:

@@ -9,6 +9,15 @@ from django.utils.translation import gettext_lazy as _
 from apps.user.models import RajaAccount
 
 
+class ReservationStatus(models.TextChoices):
+    PENDING = "pending", _("انتظار")
+    MONITORING = "monitoring", _("در حال رصد")
+    BOOKING = "booking", _("در حال رزرو")
+    REDIRECT_GATEWAY = "redirect_gateway", _("هدایت به درگاه پرداخت")
+    SUCCESS = "success", _("موفق")
+    FAILED = "failed", _("ناموفق")
+
+
 class Passenger(TimestampMixin, SoftDeleteMixin):
     class Gender(models.TextChoices):
         MALE = "male", "مرد"
@@ -104,14 +113,6 @@ class OrderItem(TimestampMixin, SoftDeleteMixin):
 
 
 class Reservation(TimestampMixin, SoftDeleteMixin):
-    class ReservationStatus(models.TextChoices):
-        PENDING = "pending", _("انتظار")
-        MONITORING = "monitoring", _("در حال رصد")
-        BOOKING = "booking", _("در حال رزرو")
-        REDIRECT_GATEWAY = "redirect_gateway", _("هدایت به درگاه پرداخت")
-        SUCCESS = "success", _("موفق")
-        FAILED = "failed", _("ناموفق")
-
     class CoupeType(models.TextChoices):
         FOUR = "four", _("چهار  تخته")
         SIX = "six", _("شش تخته")
@@ -132,28 +133,25 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
     raja_account = models.ForeignKey(
         RajaAccount, on_delete=models.CASCADE, verbose_name="اکانت رجا"
     )
-    status = models.CharField(
-        max_length=20,
-        choices=ReservationStatus.choices,
-        default=ReservationStatus.PENDING,
-        verbose_name="وضعیت",
-    )
-    payment_url = models.URLField(
-        blank=True, null=True, verbose_name="لینک درگاه پرداخت"
-    )
-    error_message = models.TextField(blank=True, null=True, verbose_name="پیام خطا")
-    celery_task_id = models.CharField(
-        max_length=50, blank=True, null=True, verbose_name="شناسه تسک سلری"
-    )
-    find_train_number = models.CharField(
-        _("شماره قطار پیدا شده"), blank=True, null=True, max_length=10, default=0
-    )
-    number_reservation = models.PositiveSmallIntegerField(
-        _("تعداد رزور"),
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        default=1,
-        db_default=1,
-    )
+    # status = models.CharField(
+    #     max_length=20,
+    #     choices=ReservationStatus.choices,
+    #     default=ReservationStatus.PENDING,
+    #     verbose_name="وضعیت",
+    # )
+    # payment_url = models.URLField(
+    #     blank=True, null=True, verbose_name="لینک درگاه پرداخت"
+    # )
+    # error_message = models.TextField(blank=True, null=True, verbose_name="پیام خطا")
+    # celery_task_id = models.CharField(
+    #     max_length=50, blank=True, null=True, verbose_name="شناسه تسک سلری"
+    # )
+    # number_reservation = models.PositiveSmallIntegerField(
+    #     _("تعداد رزور"),
+    #     validators=[MinValueValidator(1), MaxValueValidator(5)],
+    #     default=1,
+    #     db_default=1,
+    # )
     coupe_type = models.CharField(
         _("نوع کوپه"), max_length=8, blank=True, null=True, choices=CoupeType.choices
     )
@@ -170,3 +168,39 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
         db_table = "reservations"
         verbose_name = "رزرو"
         verbose_name_plural = "رزروها"
+        # constraints = [
+        #     models.CheckConstraint(
+        #         condition=models.Q(
+        #             number_reservation__gte=1, number_reservation__lte=5
+        #         ),
+        #         name="reservation_number_between_1_5",
+        #     ),
+        # ]
+
+
+class ReservationAttempt(TimestampMixin, SoftDeleteMixin):
+    reservation = models.ForeignKey(
+        Reservation, on_delete=models.CASCADE, related_name="attempts"
+    )
+    # index = models.PositiveSmallIntegerField()
+    status = models.CharField(
+        max_length=20,
+        choices=ReservationStatus.choices,
+        default=ReservationStatus.PENDING,
+    )
+    payment_url = models.URLField(blank=True, null=True)
+    error_message = models.TextField(blank=True, null=True)
+    celery_task_id = models.CharField(
+        max_length=50, blank=True, null=True, verbose_name="شناسه تسک سلری"
+    )
+    find_train_number = models.CharField(
+        _("شماره قطار پیدا شده"), blank=True, null=True, max_length=10, default=0
+    )
+
+    class Meta:
+        db_table = "reservation_attempts"
+        # constraints = [
+        #     models.UniqueConstraint(
+        #         fields=["reservation", "index"], name="uniq_attempt_index"
+        #     )
+        # ]

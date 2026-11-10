@@ -2,7 +2,7 @@ import jdatetime
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import Passenger, Order, Reservation
+from .models import Passenger, Order, Reservation, ReservationAttempt
 
 
 @admin.register(Passenger)
@@ -66,7 +66,15 @@ class OrderAdmin(admin.ModelAdmin):
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
     list_per_page = 30
-    list_display = ("id", "order_id", "raja_account_id", "status", "created_at")
-    list_filter = ("status",)
+    list_display = ("id", "order_id", "raja_account_id", "created_at")
+    # list_filter = ("status",)
     raw_id_fields = ("order", "raja_account")
     list_display_links = list_display
+
+
+@admin.register(ReservationAttempt)
+class ReservationAttemptAdmin(admin.ModelAdmin):
+    list_display = ("reservation_id", "status", "created_at", "updated_at")
+    list_display_links = list_display
+    list_per_page = 20
+    list_filter = ("created_at",)

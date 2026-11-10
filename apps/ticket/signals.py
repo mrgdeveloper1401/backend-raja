@@ -9,8 +9,7 @@ from .tasks import process_reservation_task
 @receiver(post_save, sender=Reservation)
 def trigger_reservation_task(sender, instance, created, **kwargs):
     def _process_reservation_task():
-        result = process_reservation_task.delay(instance.id)
-        Reservation.objects.filter(id=instance.id).update(celery_task_id=result.id)
+        process_reservation_task.delay(instance.id)
 
     if created:
         transaction.on_commit(_process_reservation_task)

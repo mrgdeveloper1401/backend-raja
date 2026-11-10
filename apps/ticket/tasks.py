@@ -2,17 +2,17 @@
 import asyncio
 
 import jdatetime
-from celery import shared_task
+from celery import shared_task, group
 from .booker import RajaBooker
-from .models import Reservation
+from .models import Reservation, ReservationAttempt
 
 
 @shared_task(queue="booker", time_limit=3600)
-def process_reservation_task(reservation_id):
-    try:
-        reservation = Reservation.objects.get(id=reservation_id)
-    except Reservation.DoesNotExist:
-        return "رزرو پیدا نشد"
+def run_attempt_task(attempt_id):
+    attempt = ReservationAttempt.objects.select_related(
+        "reservation__order__passenger"
+    ).get(id=attempt_id)
+    reservation = attempt.reservation
 
     # تبدیل تاریخ میلادی دیتابیس به شمسی برای ربات
     travel_date_jalali = jdatetime.date.fromgregorian(
@@ -51,7 +51,8 @@ def process_reservation_task(reservation_id):
         travel_date=travel_date_jalali,
         passengers=passengers_data,
         headless=False,  # در سرور True بشه
-        reservation_id=reservation.id,  # آیدی رزرو رو پاس می‌دیم تا وضعیتش رو آپدیت کنه
+        attempt_id=attempt.id,
+        # reservation_id=reservation.id,  # آیدی رزرو رو پاس می‌دیم تا وضعیتش رو آپدیت کنه
         travel_phone=reservation.order.passenger.phone,
         is_want_and_return=reservation.order.trip_type == "outbound_and_return",
         to_date=to_date_jalali,
@@ -61,3 +62,23 @@ def process_reservation_task(reservation_id):
     )
 
     return asyncio.run(booker.start())
+
+
+@shared_task(queue="qu")
+def process_reservation_task(reservation_id):
+    try:
+        reservation = Reservation.objects.get(id=reservation_id)
+    except Reservation.DoesNotExist:
+        return "رزرو پیدا نشد"
+
+    # reservation attempt
+    # count = reservation.number_reservation
+    attempt = ReservationAttempt.objects.create(reservation_id=reservation.id)
+    # ارسال تسک به صف booker
+    task = run_attempt_task.delay(attempt.id)
+
+    # ذخیره شناسه تسک در دیتابیس
+    attempt.celery_task_id = task.id
+    attempt.save(update_fields=["celery_task_id", "updated_at"])
+
+    return f"attempts started {reservation_id}"

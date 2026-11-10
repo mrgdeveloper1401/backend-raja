@@ -2,7 +2,7 @@
 from asgiref.sync import sync_to_async
 from django.db import transaction
 
-from apps.ticket.models import Passenger, Reservation, Order
+from apps.ticket.models import Passenger, Reservation, Order, ReservationStatus
 
 
 async def create_passenger_selector(data: dict) -> Passenger:
@@ -43,6 +43,8 @@ async def create_order_with_reservation_selector(data: dict):
                 origin=data["origin"],
                 destination=data["destination"],
                 travel_date=data["travel_date"],
+                trip_type=data.get("trip_type"),
+                to_date=data.get("to_date", None),
                 passenger_type=data.get("passenger_type", "normal"),
             )
 
@@ -50,7 +52,9 @@ async def create_order_with_reservation_selector(data: dict):
             reservation = Reservation.objects.create(
                 order_id=order.id,
                 raja_account_id=data["raja_account_id"],
-                status=Reservation.ReservationStatus.PENDING,
+                status=ReservationStatus.PENDING,
+                coupe_type=data["coupe_type"],
+                order_by=data["order_by"],
             )
 
             return order, reservation
