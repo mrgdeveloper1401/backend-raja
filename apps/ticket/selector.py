@@ -89,12 +89,12 @@ async def get_paginated_orders_selector(
         queryset = queryset.filter(status=ReservationStatus.FAILED)
 
     # ۲. فیلتر جستجو (بر اساس کد سفارش، نام مسافر، مبدا، مقصد)
-    if search:
-        queryset = queryset.filter(reservation__order__phone=search)
+    # if search:
+    #     queryset = queryset.filter(reservation__order__phone=search)
 
     # ۳. فیلتر تاریخ
-    if date:
-        queryset = queryset.filter(reservation__order__travel_date=date)
+    # if date:
+    #     queryset = queryset.filter(reservation__order__travel_date=date)
 
     # ۴. مرتب‌سازی
     queryset = queryset.order_by("-id")
@@ -110,7 +110,7 @@ async def get_paginated_orders_selector(
     async for res in queryset[offset : offset + page_size]:
         items.append(
             {
-                "id": res.id,
+                "id": res.reservation_id,
                 "status": res.status,
                 "passenger_name": f"{res.reservation.order.passenger.first_name} {res.reservation.order.passenger.last_name}",
                 "passenger_phone": res.reservation.order.passenger.phone,
