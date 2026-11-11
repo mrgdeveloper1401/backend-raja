@@ -1,24 +1,24 @@
 # Core Dependencies
-apscheduler>=3.11.3
-celery[redis]>=5.6.3
-django-bolt>=0.12.0
-django-celery-task-view>=0.1.1
-django-debug-toolbar>=8.0.0
-django-json-widget>=2.1.1
-django-redis>=7.0.0
-flower>=2.2.0
-hiredis>=3.5.0
-httpx>=0.28.1
-humanization-playwright>=0.1.2
-ipython>=9.17.1
-jdatetime>=6.1.1
-msgpack>=1.2.4
-patchright>=1.64.3
-playwright>=1.64.1
-pypasser[all,speech]>=1.1.0
-tenacity>=9.2.1
+apscheduler==3.11.3
+celery[redis]==5.6.3
+django-bolt==0.12.0
+django-celery-task-view==0.1.1
+django-debug-toolbar==8.0.0
+django-json-widget==2.1.1
+django-redis==7.0.0
+flower==2.2.0
+hiredis==3.5.0
+httpx==0.28.1
+# humanization-playwright==0.1.2
+ipython==9.17.1
+jdatetime==6.1.1
+msgpack==1.2.4
+patchright==1.64.3
+playwright==1.64.1
+pypasser[all,speech]==1.1.0
+tenacity==9.2.1
 
 # Dev / Database & Environment
-ipdb>=0.13.13
-psycopg[binary,pool]>=3.3.6 # if run local user package (binary) else use psycopg[c]
-python-decouple>=3.8
+ipdb==0.13.13
+psycopg[binary]==3.3.6 # if run local user package (binary) else use psycopg[c]
+python-decouple==3.8
