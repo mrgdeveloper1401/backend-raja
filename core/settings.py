@@ -253,7 +253,10 @@ CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6381/
 CELERY_TASK_ACKS_LATE = config("CELERY_ACKS_LATE", cast=bool, default=False)
 CELERY_TASK_QUEUES = (Queue("booker"), Queue("celery"), Queue("qu"))
 
-CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=5)
+if not IS_WINDOWS:
+    CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=5)
+else:
+    CELERY_WORKER_CONCURRENCY = 1
 
 USE_CELERY_TASK_VIEW = config("USE_CELERY_TASK_VIEW", cast=bool, default=True)
 if USE_CELERY_TASK_VIEW:

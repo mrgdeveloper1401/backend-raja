@@ -1,10 +1,30 @@
 # apps/ticket/tasks.py
 import asyncio
+import sys
 
 import jdatetime
-from celery import shared_task, group
+from celery import shared_task
+
 from .booker import RajaBooker
 from .models import Reservation, ReservationAttempt
+
+
+def _configure_event_loop_for_platform():
+    """
+    اطمینان از استفاده از Event Loop سازگار با subprocess.
+
+    - در ویندوز: تلاش برای تنظیم ProactorEventLoop (که از subprocess پشتیبانی می‌کند).
+    - در لینوکس: نیازی به تنظیم نیست (SelectorEventLoop پیش‌فرض از subprocess پشتیبانی می‌کند).
+    """
+    if sys.platform == "win32":
+        # در Python 3.14 تنظیم policy منسوخ شده است، اما اگر در دسترس باشد
+        # به‌عنوان یک لایه اطمینان اضافی از آن استفاده می‌کنیم.
+        try:
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+        except (AttributeError, DeprecationWarning):
+            # در Python 3.14+ این policy ممکن است deprecated یا حذف شده باشد.
+            # در این حالت به رفتار پیش‌فرض ویندوز (که Proactor است) تکیه می‌کنیم.
+            pass
 
 
 @shared_task(queue="booker", time_limit=3600)
@@ -50,9 +70,8 @@ def run_attempt_task(attempt_id):
         destination=reservation.order.destination,
         travel_date=travel_date_jalali,
         passengers=passengers_data,
-        headless=False,  # در سرور True بشه
+        headless=False,  # در سرور True شود
         attempt_id=attempt.id,
-        # reservation_id=reservation.id,  # آیدی رزرو رو پاس می‌دیم تا وضعیتش رو آپدیت کنه
         travel_phone=reservation.order.passenger.phone,
         is_want_and_return=reservation.order.trip_type == "outbound_and_return",
         to_date=to_date_jalali,
@@ -60,6 +79,9 @@ def run_attempt_task(attempt_id):
         coupe_filter=reservation.coupe_type,
         order_by_filter=reservation.order_by,
     )
+
+    # تنظیم Event Loop مناسب قبل از اجرای کد async
+    _configure_event_loop_for_platform()
 
     return asyncio.run(booker.start())
 
@@ -71,13 +93,9 @@ def process_reservation_task(reservation_id):
     except Reservation.DoesNotExist:
         return "رزرو پیدا نشد"
 
-    # reservation attempt
-    # count = reservation.number_reservation
     attempt = ReservationAttempt.objects.create(reservation_id=reservation.id)
-    # ارسال تسک به صف booker
     task = run_attempt_task.delay(attempt.id)
 
-    # ذخیره شناسه تسک در دیتابیس
     attempt.celery_task_id = task.id
     attempt.save(update_fields=["celery_task_id", "updated_at"])
 
