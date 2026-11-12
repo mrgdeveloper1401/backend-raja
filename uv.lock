@@ -72,14 +72,13 @@ dependencies = [
     { name = "flower" },
     { name = "hiredis" },
     { name = "httpx" },
-    { name = "humanization-playwright" },
     { name = "ipdb" },
     { name = "ipython" },
     { name = "jdatetime" },
     { name = "msgpack" },
     { name = "patchright" },
     { name = "playwright" },
-    { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "psycopg", extra = ["c", "pool"] },
     { name = "pypasser", extra = ["speech", "vision"] },
     { name = "python-decouple" },
     { name = "tenacity" },
@@ -97,14 +96,13 @@ requires-dist = [
     { name = "flower", specifier = ">=2.2.0" },
     { name = "hiredis", specifier = ">=3.5.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "humanization-playwright", specifier = ">=0.1.2" },
     { name = "ipdb", specifier = ">=0.13.13" },
     { name = "ipython", specifier = ">=9.17.1" },
     { name = "jdatetime", specifier = ">=6.1.1" },
     { name = "msgpack", specifier = ">=1.2.4" },
     { name = "patchright", specifier = ">=1.64.3" },
     { name = "playwright", specifier = ">=1.64.1" },
-    { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.3.6" },
+    { name = "psycopg", extras = ["c", "pool"], specifier = ">=3.3.9" },
     { name = "pypasser", extras = ["speech", "vision"], specifier = ">=1.1.0" },
     { name = "python-decouple", specifier = ">=3.8" },
     { name = "tenacity", specifier = ">=9.2.1" },
@@ -704,20 +702,6 @@ socks = [
 ]
 
 [[package]]
-name = "humanization-playwright"
-version = "0.1.2"
-source = { registry = "https://package-mirror.liara.ir/repository/pypi/simple" }
-dependencies = [
-    { name = "loguru" },
-    { name = "patchright" },
-    { name = "playwright" },
-]
-sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/11/19/0c37b9676bccb71df8d3f99c9fc9104f660b3bc99feb25f08c9076a73996/humanization_playwright-0.1.2.tar.gz", hash = "sha256:5b05d5d7db5a283a8448d5e00f23626e367ccd370af30c286abee82e5e5bce7f" }
-wheels = [
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/33/b5/227fb68b1e6174c83f1175678373c2facfaabbce506458bc87ad1d05a484/humanization_playwright-0.1.2-py3-none-any.whl", hash = "sha256:9d2a476c96f1276c88468245f10215582ec727916baf9a64729fc24480b71d42" },
-]
-
-[[package]]
 name = "humanize"
 version = "4.16.0"
 source = { registry = "https://package-mirror.liara.ir/repository/pypi/simple" }
@@ -847,19 +831,6 @@ wheels = [
 redis = [
     { name = "packaging" },
     { name = "redis" },
-]
-
-[[package]]
-name = "loguru"
-version = "0.7.3"
-source = { registry = "https://package-mirror.liara.ir/repository/pypi/simple" }
-dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-    { name = "win32-setctime", marker = "sys_platform == 'win32'" },
-]
-sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6" }
-wheels = [
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/0c/29/0348de65b8cc732daa3e33e67806420b2ae89bdce2b04af740289c5c6c8c/loguru-0.7.3-py3-none-any.whl", hash = "sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c" },
 ]
 
 [[package]]
@@ -1191,52 +1162,29 @@ wheels = [
 
 [[package]]
 name = "psycopg"
-version = "3.3.8"
+version = "3.3.9"
 source = { registry = "https://package-mirror.liara.ir/repository/pypi/simple" }
 dependencies = [
     { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/11/c8/3bd7e09770a5829eb26667df5e49f084d78bd106d5949ade9447288a8e18/psycopg-3.3.8.tar.gz", hash = "sha256:86c135a9a6f5e98404975c5787e620bf436a7807e088baebd1b20fa48d3b4b4f" }
+sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/b4/74/ff710399dfa9fe9b546c2f5a05ea2f9b9d1dc2145c0b59e53a3fa2013679/psycopg-3.3.9.tar.gz", hash = "sha256:87c1d85c3e0e88e811d3c0b3808f947bd967c6faf34af6cd86fd021f77793d6c" }
 wheels = [
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/7b/5c/50a0b0796ccb69b11934f7c5758051c08019bda2fafb417501109fffd569/psycopg-3.3.8-py3-none-any.whl", hash = "sha256:ca50af6072ba9ea6866f33021975230c2555d7bfdb9d8f94ca3af5c3d1bf2167" },
+    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/52/5d/a7957d1b5484f8e5094a15b1a400929324f978b670bd4a95179e1a012ec2/psycopg-3.3.9-py3-none-any.whl", hash = "sha256:d2d7d04a1ce6dab4f5b27316bea3b52585cafa2f2d631e5b09dd69823f5c26f6" },
 ]
 
 [package.optional-dependencies]
-binary = [
-    { name = "psycopg-binary", marker = "implementation_name != 'pypy'" },
+c = [
+    { name = "psycopg-c", marker = "implementation_name != 'pypy'" },
 ]
 pool = [
     { name = "psycopg-pool" },
 ]
 
 [[package]]
-name = "psycopg-binary"
-version = "3.3.8"
+name = "psycopg-c"
+version = "3.3.9"
 source = { registry = "https://package-mirror.liara.ir/repository/pypi/simple" }
-wheels = [
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/7a/67/7da6c17ce91cc8f991c104d7d557396d37bd2394436d446af87493e8bed7/psycopg_binary-3.3.8-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:e09cc11a367cbb147bacec0a41d748d22245e322827911d9c82b6066a8ba2059" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/f3/0c/56a7a35b304a7ae9f2796f76dd76a847d34f0cdaa76f0945294c06d13220/psycopg_binary-3.3.8-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:bf9388216da2069ca0dbad58479bb83e4b979ed35c4a80d247399ac93361417c" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/17/d1/99852fa4ebae1956c664be13758cf98219e9bf9613d58b9f4b21301dd1a9/psycopg_binary-3.3.8-cp314-cp314-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:78f92c5c9c9177b247b0f72f03412bc829185786525a8cf8742460066762a7d1" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/6d/70/b0e38a0f80439e3b4a4ce52d1421ee5c6aa2803a43c50d32cfd16efb6df9/psycopg_binary-3.3.8-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:710183a2e29c72050c3a447f9f566de27c6efea9da40bf7b800381ac57026204" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/b6/b3/8bc56251ee11c9fcbf83fd87970116d9997834bb7ff8b9d1b8e23b468581/psycopg_binary-3.3.8-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:df35063b88af16c08bb8960aac9882cce620aea478dfec5a67cff397b575b97d" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/4a/c7/64fd282c7a16dbb56af75f336c58e16c7e00be147d8efb93eeec6a4d4def/psycopg_binary-3.3.8-cp314-cp314-manylinux_2_38_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:a63be4f745b778654e3c438d1b0e31bcf5ce265151c6982d5c6d5d286bae84c0" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/80/da/88d70f65c54a828f3d89597749e6c1b90991297e34de5f50b0f8f394022b/psycopg_binary-3.3.8-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:ced3499d480a979b956536b3f71a4736451bf3a976e4e400fc5c4b8dd3f43b23" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/e8/fe/0bdcc827e2fdb4a63e9516ad9e6e3989c39076796074ee752e0fd5c7e2bd/psycopg_binary-3.3.8-cp314-cp314-musllinux_1_2_ppc64le.whl", hash = "sha256:bf96efb4530605813b30d664f5d3b510540d89434a8e89dd7c62fb2d4fa4278f" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/8e/7c/d870616fd18f371c710a08fee92d1f7c663753e992e03472b84954fa8a82/psycopg_binary-3.3.8-cp314-cp314-musllinux_1_2_riscv64.whl", hash = "sha256:0fd106e47b7d1f82744b23b6dd31856435e46c3d1b3d4972325d76f2e7a3d771" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/1b/bd/af3b881b42954a5cf406b084588dd7e2fd069bb998beeef2ab5057d4cbec/psycopg_binary-3.3.8-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:5deec7746acf1c742572b8bf8599f2f61a38c9925015d77254d87d3781169b3f" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/00/72/132dd54feeac60ecb77eae04bac76cdcf84f8fc1e8e7cae596cd2a9d43c9/psycopg_binary-3.3.8-cp314-cp314-win_amd64.whl", hash = "sha256:6d899f361effad9a23d90940b6b55683bc87ed2d457ef64a7fa76fee7c3b9dfc" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/22/85/7589ec7690974b56b5cd2c5c00174f9b78f958fb6a381317a33620696380/psycopg_binary-3.3.8-cp315-cp315-macosx_10_15_x86_64.whl", hash = "sha256:419a52eb62bdc0bf9eff80039329435c55a1943b1fa12f4d0cbdc45b5f856c5b" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/49/cd/7a01cfa27b2f062727d3abe82726915cc45789a4649bdab6f7740b779348/psycopg_binary-3.3.8-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:f31dea98f8c5c6c60e8e049388f24eec14088518e2ded0f892d96c785401e688" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/e5/ae/06211024de518c5a5d02733fba9639a062dc41f1f322e273ad611973bb3b/psycopg_binary-3.3.8-cp315-cp315-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:5fd40b5ced3f8b458024ea434f2dfee7aa62a65663089bde26c41302f6c31b2e" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/e5/48/82a13d5b04fb046582b87f0651252f66dc5e1cc3183d6807aff1ea126189/psycopg_binary-3.3.8-cp315-cp315-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:fc134798cd646a15326004bbeff4c2719e000a9ac52f6b893a767f7c5276e24b" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/ee/24/01ddf5382fe55372f85f174e9531bdcc5350a6c9b980e25e19653d038bf8/psycopg_binary-3.3.8-cp315-cp315-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:da101085aa9f74817e48fc96dda859528fc52fabcf81e27c3640d1df17dd6dcb" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/51/42/192a69f42c797d8dc09ebd97f69c2c3f745abba810379df83c38490fc428/psycopg_binary-3.3.8-cp315-cp315-manylinux_2_38_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:bb88457e8357a8709ab04f542c07361a816793f012a1c9818a4edd86d02cde4d" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/82/73/a420dc5c2888d5c91bd40ddd7a8a604b622f3d883048a6b92e5c33ac1e9b/psycopg_binary-3.3.8-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:eb4cd3f0ad6ebcf2baeb94f93d87138044976b57b7113b6321ac3c5cf70a8130" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/29/57/b30555a448fcc60607cbee68880a4126786680e71b7cc25e0a836b31da8b/psycopg_binary-3.3.8-cp315-cp315-musllinux_1_2_ppc64le.whl", hash = "sha256:9199be795608cbd3e6cc39b21c19e6043c44bc15d5a1d28f1df379830c553dd5" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/48/4b/a6ead08df35feb2f5e10897e33c1ba26809f85365a7c2a0efa244acf9008/psycopg_binary-3.3.8-cp315-cp315-musllinux_1_2_riscv64.whl", hash = "sha256:6bde86fb307fe1698fbbfeaa96130d4825f265afbeff217b959c1905b86f924d" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/68/8a/7ff05b083c676024beb549863a19d59b205931010ec7f3a12aadf5de9901/psycopg_binary-3.3.8-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:c2154bd84cf20148d9a59e3ade04f0f754462b96cfac91d54d76ef33af7946e5" },
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/59/a7/58ab2cf0a6da11d5c2b00d524f5d5b114e2e6359e629d34360cf57a22e20/psycopg_binary-3.3.8-cp315-cp315-win_amd64.whl", hash = "sha256:0332e83c2e78b1c8c00c1095688f9b332bdde9d5e9d61b8ce1cdcaf716a19b9e" },
-]
+sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/bc/2b/09dece13af82681cad81a70d21da76ecf37bc280a15693a3fe966751649f/psycopg_c-3.3.9.tar.gz", hash = "sha256:591fcbcb40e089235a7f096b9e887e71ccae78fd337aba198d918e33707c5e01" }
 
 [[package]]
 name = "psycopg-pool"
@@ -1768,13 +1716,4 @@ wheels = [
     { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/f9/53/8f37a3943517bba77fc86f7c4162c455018c5b6d760c5e9c9a11de9e37f7/websockets-17.4-cp315-cp315t-win_amd64.whl", hash = "sha256:6e6558efbb256b532c9f06a21ba42bcac729718e365c505819f181f25e5c0eca" },
     { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/69/35/cf33cba7248fcd80cfe5911ffe67aa2637f50c2bfaada123b1e9d2aeca90/websockets-17.4-cp315-cp315t-win_arm64.whl", hash = "sha256:fcac44d917672ad6257ad64b80b5168306f168a78cab5c0612e4c699caed18cf" },
     { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/eb/27/9db924cb0dbf22eade78d98fbae77790f9bf6bc729e6ab29aef9d68e4156/websockets-17.4-py3-none-any.whl", hash = "sha256:c6bd2c9781915592b209160d0f017d4c7c82ad53075e6b0c24d2a89299e7f9e9" },
-]
-
-[[package]]
-name = "win32-setctime"
-version = "1.2.1"
-source = { registry = "https://package-mirror.liara.ir/repository/pypi/simple" }
-sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/1a/e4/f0f252c65f9bf7c4042b1f707ef338d49f799da582234e1d3e6e2cfca291/win32_setctime-1.2.1.tar.gz", hash = "sha256:077b35471bf1ff1d71e165c919ddc0cecf51b8e1802f5d820d33a96e2f6717dd" }
-wheels = [
-    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/bd/df/5593480bc1e932eeae28e4fa182ab68174edd0d77409ced3b6491d02d1d5/win32_setctime-1.2.1-py3-none-any.whl", hash = "sha256:a9edc685b35414bec69392c866ed82456ad125ac4a6a4b703ec1d8b462d4f477" },
 ]
