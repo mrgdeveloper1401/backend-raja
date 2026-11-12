@@ -91,7 +91,7 @@ class RajaBooker:
                     self.context.channel = None
 
                 self.page = await self.context.new_page()
-                self.page.set_default_timeout(60000)
+                self.page.set_default_timeout(20000)
                 await self.page.goto("https://raja.ir/", wait_until="networkidle")
 
                 # ✅ پاک کردن state سشن قبلی (بدون لمس کوکی‌های لاگین)
@@ -136,7 +136,9 @@ class RajaBooker:
             print(f"خطای کلی در اجرای ربات:\n{error_trace}")
             await self._update_status(ReservationStatus.FAILED, error_message=str(e))
         finally:
-            await self.context.close()
+            if self.context is not None:
+                await self.context.close()
+            print(f"خطا در بستن context: {e}")
 
     async def _update_status(self, status, payment_url=None, error_message=None):
         if not self.attempt_id:
@@ -153,22 +155,22 @@ class RajaBooker:
             await attempt.asave()
 
             # وضعیت کلی رزرو
-            reservation = attempt.reservation
-            if status == ReservationStatus.FAILED:
-                # فقط اگر همه attemptها شکست خورده باشند، وضعیت رزرو را FAILED کن
-                still_active = (
-                    await ReservationAttempt.objects.filter(
-                        reservation_id=reservation.id
-                    )
-                    .exclude(status=ReservationStatus.FAILED)
-                    .aexists()
-                )
-                if still_active:
-                    return
-            reservation.status = status
-            if payment_url and not reservation.payment_url:
-                reservation.payment_url = payment_url  # ✅ اصلاح شد
-            await reservation.asave()
+            # reservation = attempt.reservation
+            # if status == ReservationStatus.FAILED:
+            #     # فقط اگر همه attemptها شکست خورده باشند، وضعیت رزرو را FAILED کن
+            #     still_active = (
+            #         await ReservationAttempt.objects.filter(
+            #             reservation_id=reservation.id
+            #         )
+            #         .exclude(status=ReservationStatus.FAILED)
+            #         .aexists()
+            #     )
+            #     if still_active:
+            #         return
+            # reservation.status = status
+            # if payment_url and not attempt.payment_url:
+            #     attempt.payment_url = payment_url  # ✅ اصلاح شد
+            # await reservation.asave()
         except Exception as e:
             print(f"خطا در آپدیت وضعیت: {e}")
 
