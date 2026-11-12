@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('ticket', '0008_alter_reservation_raja_account'),
+        ("ticket", "0008_alter_reservation_raja_account"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='reservation',
-            name='celery_task_id',
-            field=models.CharField(blank=True, max_length=50, null=True, verbose_name='شناسه تسک سلری'),
+            model_name="reservation",
+            name="celery_task_id",
+            field=models.CharField(
+                blank=True, max_length=50, null=True, verbose_name="شناسه تسک سلری"
+            ),
         ),
     ]

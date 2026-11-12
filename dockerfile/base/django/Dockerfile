@@ -11,7 +11,7 @@ WORKDIR /app
 # =========================
 FROM base AS builder
 
-#ENV PIP_INDEX_URL=https://mirror-pypi.runflare.com/simple
+#ENV PIP_INDEX_URL=https://package-mirror.liara.ir/repository/pypi/simple
 
 # Build tools for psycopg[c].
 RUN apt update \

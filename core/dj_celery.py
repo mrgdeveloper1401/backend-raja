@@ -11,6 +11,6 @@ app = Celery()
 app.config_from_object("django.conf:settings", namespace="CELERY")
 
 if IS_WINDOWS:
-    app.conf.worker_pool = 'solo'
+    app.conf.worker_pool = "solo"
 
 app.autodiscover_tasks()

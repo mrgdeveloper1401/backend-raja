@@ -1,7 +1,32 @@
-from typing import Optional, List, Literal, Union
+from enum import Enum
+from typing import Optional, List, Literal, Union, Annotated
 
 from django_bolt.serializers import Serializer
 from datetime import date
+
+
+class TripTypeEnum(Enum):
+    OUT_BOUND = "outbound"
+    OUT_BOUND_AND_RETURN = "outbound_and_return"
+
+
+class PassengerTypeEnum(Enum):
+    MAN = "man"
+    WOMAN = "woman"
+    NORMAL = "normal"
+
+
+class CoupeTypeEnum(Enum):
+    FOUR = "four"
+    SIX = "six"
+    FOR_ROW = "for_row"
+
+
+class OrderByEnum(Enum):
+    CLOCK = "clock"
+    CHEAP = "cheap"
+    EXPENSIVE = "expensive"
+    OWNER = "owner"
 
 
 class DashboardStatusSchema(Serializer):
@@ -18,17 +43,19 @@ class ReservationListSchema(Serializer):
     origin: str
     destination: str
     travel_date: date
-    status: str
 
 
 class OrderListSchema(Serializer):
     id: int
-    status: str
     passenger_name: str
     passenger_phone: str
     origin: str
     destination: str
     travel_date: date
+    to_date: Union[date, None]
+    passenger_type: PassengerTypeEnum
+    trip_type: TripTypeEnum
+    status: Union[str, None]
 
 
 class PaginatedOrdersSchema(Serializer):
@@ -113,7 +140,11 @@ class OrderCreateSchema(Serializer):
     origin: str
     destination: str
     travel_date: str
+    to_date: str | None = None
     passenger_type: Literal["normal", "woman", "man"]
+    trip_type: Literal["outbound", "outbound_and_return"]
+    coupe_type: Literal["four", "six", "for_row", None]
+    order_by: Literal["clock", "cheap", "expensive", "owner"]
 
     # اکانت رجا
     raja_account_id: Union[str, int]
@@ -129,6 +160,5 @@ class DashboardChartStatusSchema(Serializer):
     monitoring_count: int
     booking_count: int
     redirect_gateway_count: int
-    success_count: int
     failed_count: int
     active_orders_count: int  # مجموع وضعیت‌های فعال

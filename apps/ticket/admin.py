@@ -1,7 +1,8 @@
+import jdatetime
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import Passenger, Order, Reservation
+from .models import Passenger, Order, Reservation, ReservationAttempt
 
 
 @admin.register(Passenger)
@@ -13,11 +14,19 @@ class PassengerAdmin(admin.ModelAdmin):
         "first_name",
         "last_name",
         "birth_date",
+        "show_jdatetime",
         "gender",
     )
     list_display_links = list_display
     search_fields = ("=phone",)
     search_help_text = _("برای جست و جو میتوانید از شماره تلفن کاربر استفاده کنید")
+
+    def show_jdatetime(self, obj):
+        return jdatetime.date.fromgregorian(
+            year=obj.birth_date.year, month=obj.birth_date.month, day=obj.birth_date.day
+        )
+
+    show_jdatetime.short_description = _("تاریخ تولد شمسی")
 
 
 @admin.register(Order)
@@ -35,6 +44,8 @@ class OrderAdmin(admin.ModelAdmin):
     list_display_links = list_display
     ordering = ("-id",)
     list_select_related = ("passenger",)
+    search_fields = ("=passenger__phone",)
+    search_help_text = _("برای جست و جو میتوانید از شماره تماس مسافر استفاده کنید")
 
     def get_phone(self, obj):
         return obj.passenger.phone
@@ -55,7 +66,15 @@ class OrderAdmin(admin.ModelAdmin):
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
     list_per_page = 30
-    list_display = ("id", "order_id", "raja_account_id", "status", "created_at")
-    list_filter = ("status",)
+    list_display = ("id", "order_id", "raja_account_id", "created_at")
+    # list_filter = ("status",)
     raw_id_fields = ("order", "raja_account")
     list_display_links = list_display
+
+
+@admin.register(ReservationAttempt)
+class ReservationAttemptAdmin(admin.ModelAdmin):
+    list_display = ("reservation_id", "status", "created_at", "updated_at")
+    list_display_links = list_display
+    list_per_page = 20
+    list_filter = ("created_at",)

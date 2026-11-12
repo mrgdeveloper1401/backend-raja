@@ -61,25 +61,6 @@ async def five_reservation():
 
 
 @api.get(
-    "/orders",
-    status_code=200,
-    response_model=PaginatedOrdersSchema,
-    auth=[JWTAuthentication()],
-    guards=[IsAuthenticated()],
-)
-async def list_orders(
-    tab: str = "all",
-    search: str = "",
-    date: str | None = None,
-    page: int = 1,
-):
-    res = await get_paginated_orders_selector(
-        tab=tab, search=search, date=date, page=page, page_size=20
-    )
-    return res
-
-
-@api.get(
     "/passengers",
     status_code=200,
     response_model=PaginatedPassengersSchema,
@@ -177,6 +158,25 @@ async def create_order(payload: OrderCreateSchema):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@api.get(
+    "/orders",
+    status_code=200,
+    response_model=PaginatedOrdersSchema,
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+)
+async def list_orders(
+    tab: str = "all",
+    search: str = "",
+    date: str | None = None,
+    page: int = 1,
+):
+    res = await get_paginated_orders_selector(
+        tab=tab, search=search, date=date, page=page, page_size=20
+    )
+    return res
 
 
 # روت نمودار
