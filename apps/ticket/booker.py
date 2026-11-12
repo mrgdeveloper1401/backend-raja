@@ -8,12 +8,27 @@ from pathlib import Path
 
 
 from patchright.async_api import async_playwright
+from pypasser.captcha import arcaptcha
 
-from apps.ticket.models import Reservation, ReservationAttempt, ReservationStatus
+from apps.ticket.models import ReservationAttempt, ReservationStatus
 from apps.user.models import RajaAccount
 from core.settings import IS_WINDOWS
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+
+def log_request(request):
+    if request.resource_type in ["xhr", "fetch"]:
+        print(f"--> {request.method} {request.url}")
+        print("Headers", request.headers)
+        if request.post_data:
+            print("body", request.post_data)
+
+
+def log_response(response):
+    if response.request.resource_type in ["xhr", "fetch"]:
+        print(f"<-- {response.status} {response.url}")
+        print("response body", response.text)
 
 
 class RajaBooker:
@@ -140,7 +155,9 @@ class RajaBooker:
                 await self.context.close()
             print(f"خطا در بستن context: {e}")
 
-    async def _update_status(self, status, payment_url=None, error_message=None):
+    async def _update_status(
+        self, status, payment_url=None, error_message=None, captcha_token=None
+    ):
         if not self.attempt_id:
             return
         try:
@@ -152,6 +169,8 @@ class RajaBooker:
                 attempt.payment_url = payment_url
             if error_message:
                 attempt.error_message = error_message
+            if captcha_token:
+                attempt.captcha_token = captcha_token
             await attempt.asave()
 
             # وضعیت کلی رزرو
@@ -505,11 +524,54 @@ class RajaBooker:
         await self.page.locator("button.btn-success:has-text('پرداخت')").click()
         await self._human_delay()
 
+        print("در حال منتظر ماندن برای لود شدن کپچا...")
+        # کلیک بر روی دکمه من ربات نیستم
+        captcha_box = self.page.locator("#input-checkbox")
+        await captcha_box.wait_for(state="visible", timeout=15000)
+        await self._human_delay()
+
+        await captcha_box.click()
+
+        print("منتظر حل شدن کپچا...")
+        await self._human_delay(1, 2)
+        self.page.on("request", log_request)
+        self.page.on("response", log_response)
+
+        # حل کپچا
+        result = await arcaptcha.asolve(
+            page=self.page, site_key="t8xr2hpxue", domain="www.raja.ir"
+        )
+        if result.is_solved:
+            token = result.response_token
+            print("Token:", token)
+            await self._update_status(
+                captcha_token=result.response_token, status=ReservationStatus.CAPTCHA
+            )
+
+            # تزریق توکن به فیلد مخفی
+            await self.page.evaluate(f"""
+                () => {{
+                    let input = document.querySelector('input[name="arcaptcha-token"]');
+                    if (!input) {{
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'arcaptcha-token';
+                        document.querySelector('form')?.appendChild(input);
+                    }}
+                    input.value = '{token}';
+                }}
+            """)
+            print("کپچا با موفقیت حل شد")
+            await self._human_delay()
+
         payment_url = self.page.url
-        print(f"لینک درگاه نهایی: {payment_url}")
+        split_payment_url = payment_url.split("registerticket")
+        split_payment_url.insert(1, "payment")
+        new_payment_url = "".join(split_payment_url)
+        print(f"لینک درگاه نهایی: {new_payment_url}")
         await self._update_status(
-            ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
+            ReservationStatus.REDIRECT_GATEWAY, payment_url=new_payment_url
         )
         print("به درگاه پرداخت رسیدیم برای خارج شدن از مرورگر فقط مرورگر رو ببندید")
-
+        await self.page.goto(new_payment_url, wait_until="networkidle")
         await self.page.pause()

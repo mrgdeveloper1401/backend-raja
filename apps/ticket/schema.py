@@ -1,8 +1,9 @@
 from enum import Enum
 from typing import Optional, List, Literal, Union, Annotated
 
+from django_bolt import PageNumberPagination
 from django_bolt.serializers import Serializer
-from datetime import date
+from datetime import date, datetime
 
 
 class TripTypeEnum(Enum):
@@ -33,6 +34,7 @@ class DashboardStatusSchema(Serializer):
     failed_count: int
     success_count: int
     active_orders_count: int
+    solve_captcha: int
 
 
 class ReservationListSchema(Serializer):
@@ -162,3 +164,31 @@ class DashboardChartStatusSchema(Serializer):
     redirect_gateway_count: int
     failed_count: int
     active_orders_count: int  # مجموع وضعیت‌های فعال
+    solve_captcha: int
+
+
+class RestitutionSchema(Serializer):
+    serial_number: str
+    phone: str
+    train_number: str
+    hall_number: str
+    raja_account_id: int
+    status: Literal["success", "failed", "pending"] = "pending"
+
+
+class RestitutionResponseSchema(Serializer):
+    id: int
+    serial_number: str
+    phone: str
+    train_number: str
+    hall_number: str
+    created_at: datetime
+    updated_at: datetime
+    raja_account_id: int
+    status: Literal["success", "failed", "pending"]
+
+
+class RestitutionPagination(PageNumberPagination):
+    page_size = 20
+    max_page_size = 100
+    page_size_query_param = "page_size"

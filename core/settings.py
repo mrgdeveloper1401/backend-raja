@@ -251,7 +251,12 @@ CELERY_RESULT_BACKEND = config(
 )  # نتیجه تسک در کجا ریخته شود
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6381/3")
 CELERY_TASK_ACKS_LATE = config("CELERY_ACKS_LATE", cast=bool, default=False)
-CELERY_TASK_QUEUES = (Queue("booker"), Queue("celery"), Queue("qu"))
+CELERY_TASK_QUEUES = (
+    Queue("booker"),
+    Queue("celery"),
+    Queue("qu"),
+    Queue("restitution"),
+)
 
 if not IS_WINDOWS:
     CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=5)

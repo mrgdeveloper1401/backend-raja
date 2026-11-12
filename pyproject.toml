@@ -10,6 +10,7 @@ requires-python = ">=3.14"
 dependencies = [
     "apscheduler>=3.11.3",
     "celery[redis]>=5.6.3",
+    "ddddocr>=1.6.1",
     "django-bolt>=0.13.0",
     "django-celery-task-view>=0.1.1",
     "django-debug-toolbar>=8.0.0",

@@ -2,7 +2,7 @@
 from asgiref.sync import sync_to_async
 from django.db import transaction
 
-from apps.ticket.models import Passenger, Reservation, Order, ReservationStatus
+from apps.ticket.models import Passenger, Reservation, Order, Restitution
 
 
 async def create_passenger_selector(data: dict) -> Passenger:
@@ -59,3 +59,8 @@ async def create_order_with_reservation_selector(data: dict):
             return order, reservation
 
     return await _create()
+
+
+async def create_restitution(data: dict) -> Reservation:
+    restitution = await Restitution.objects.acreate(**data)
+    return restitution

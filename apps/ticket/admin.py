@@ -2,7 +2,7 @@ import jdatetime
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import Passenger, Order, Reservation, ReservationAttempt
+from .models import Passenger, Order, Reservation, ReservationAttempt, Restitution
 
 
 @admin.register(Passenger)
@@ -67,7 +67,6 @@ class OrderAdmin(admin.ModelAdmin):
 class ReservationAdmin(admin.ModelAdmin):
     list_per_page = 30
     list_display = ("id", "order_id", "raja_account_id", "created_at")
-    # list_filter = ("status",)
     raw_id_fields = ("order", "raja_account")
     list_display_links = list_display
 
@@ -78,3 +77,47 @@ class ReservationAttemptAdmin(admin.ModelAdmin):
     list_display_links = list_display
     list_per_page = 20
     list_filter = ("created_at",)
+    raw_id_fields = ("reservation",)
+
+
+@admin.register(Restitution)
+class RestitutionAdmin(admin.ModelAdmin):
+    list_display = (
+        "serial_number",
+        "phone",
+        "train_number",
+        "hall_number",
+        "created_at",
+        "status",
+        "raja_account_id",
+        "raja_account_phone"
+    )
+    list_display_links = list_display
+    list_per_page = 20
+    list_filter = ("status", "created_at")
+    search_fields = ("=serial_number",)
+    search_help_text = _("برای جست و جو میتوانید از سریال نمابر استفاده کنید")
+    list_select_related = ("raja_account",)
+    raw_id_fields = ("raja_account",)
+
+    def raja_account_phone(self, obj):
+        return obj.raja_account.username
+
+    raja_account_phone.short_description = _("اکانت رجا")
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .only(
+                "serial_number",
+                "phone",
+                "train_number",
+                "hall_number",
+                "created_at",
+                "status",
+                "raja_account__username",
+                "updated_at",
+                'error_message'
+            )
+        )

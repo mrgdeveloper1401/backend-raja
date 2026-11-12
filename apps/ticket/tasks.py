@@ -6,7 +6,8 @@ import jdatetime
 from celery import shared_task
 
 from .booker import RajaBooker
-from .models import Reservation, ReservationAttempt
+from .models import Reservation, ReservationAttempt, Restitution
+from .restitution import RestitutionTicket
 
 
 def _configure_event_loop_for_platform():
@@ -21,7 +22,7 @@ def _configure_event_loop_for_platform():
         # به‌عنوان یک لایه اطمینان اضافی از آن استفاده می‌کنیم.
         try:
             asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-        except (AttributeError, DeprecationWarning):
+        except AttributeError, DeprecationWarning:
             # در Python 3.14+ این policy ممکن است deprecated یا حذف شده باشد.
             # در این حالت به رفتار پیش‌فرض ویندوز (که Proactor است) تکیه می‌کنیم.
             pass
@@ -100,3 +101,25 @@ def process_reservation_task(reservation_id):
     attempt.save(update_fields=["celery_task_id", "updated_at"])
 
     return f"attempts started {reservation_id}"
+
+
+@shared_task(queue="restitution")
+def run_restitution_task(restitution_id):
+    try:
+        obj = Restitution.objects.get(id=restitution_id)
+    except Reservation.DoesNotExist:
+        return "استرداد پیدا نشد"
+
+    # تنظیم Event Loop مناسب قبل از اجرای کد async
+    # for windows
+    _configure_event_loop_for_platform()
+
+    restitution_ticket = RestitutionTicket(
+        serial=obj.serial_number,
+        phone=obj.phone,
+        hall_number=obj.hall_number,
+        account_id=obj.raja_account_id,
+        restitution_id=obj.id,
+        train_number=obj.train_number,
+    )
+    return asyncio.run(restitution_ticket.start())

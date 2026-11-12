@@ -1,6 +1,6 @@
 from typing import List
 
-from django_bolt import BoltAPI, JWTAuthentication, IsAuthenticated
+from django_bolt import BoltAPI, JWTAuthentication, IsAuthenticated, paginate
 from django_bolt.exceptions import HTTPException
 
 from apps.ticket.models import Passenger
@@ -15,6 +15,9 @@ from apps.ticket.schema import (
     PassengerNewDetailSchema,
     OrderCreateSchema,
     DashboardChartStatusSchema,
+    RestitutionResponseSchema,
+    RestitutionSchema,
+    RestitutionPagination,
 )
 from apps.ticket.selector import (
     dashboard_status_selector,
@@ -25,10 +28,12 @@ from apps.ticket.selector import (
     delete_passenger_selector,
     get_passenger_detail_selector,
     dashboard_chart_status_selector,
+    restitution_list_selector,
 )
 from apps.ticket.services import (
     create_passenger_selector,
     create_order_with_reservation_selector,
+    create_restitution,
 )
 
 api = BoltAPI(prefix="/api/v1/admin")
@@ -189,4 +194,29 @@ async def list_orders(
 )
 async def dashboard_chart_status():
     res = await dashboard_chart_status_selector()
+    return res
+
+
+@api.post(
+    "/restitution",
+    response_model=RestitutionResponseSchema,
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+    status_code=201,
+)
+async def restitution(data: RestitutionSchema):
+    res = await create_restitution(data.to_dict())
+    return res
+
+
+@api.get(
+    "/restitution",
+    response_model=List[RestitutionResponseSchema],
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+    status_code=200,
+)
+@paginate(RestitutionPagination)
+async def restitution_list(request) -> List[RestitutionResponseSchema]:
+    res = await restitution_list_selector()
     return res

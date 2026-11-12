@@ -1,3 +1,4 @@
+from asgiref.sync import sync_to_async
 from django.db.models import Count, Q, OuterRef, Subquery, Prefetch
 
 from apps.ticket.models import (
@@ -6,6 +7,7 @@ from apps.ticket.models import (
     Order,
     ReservationStatus,
     ReservationAttempt,
+    Restitution,
 )
 from apps.user.models import RajaAccount
 
@@ -32,6 +34,7 @@ async def dashboard_status_selector():
                 ]
             ),
         ),
+        solve_captcha=Count("id", filter=Q(status=ReservationStatus.CAPTCHA)),
     )
     return stats
 
@@ -258,6 +261,7 @@ async def dashboard_chart_status_selector():
         redirect_gateway_count=Count(
             "id", filter=Q(status=ReservationStatus.REDIRECT_GATEWAY)
         ),
+        solve_captcha=Count("id", filter=Q(status=ReservationStatus.CAPTCHA)),
         failed_count=Count("id", filter=Q(status=ReservationStatus.FAILED)),
         active_orders_count=Count(
             "id",
@@ -272,3 +276,8 @@ async def dashboard_chart_status_selector():
         ),
     )
     return stats
+
+
+async def restitution_list_selector():
+    # return [item async for item in Restitution.objects.order_by('id')]
+    return Restitution.objects.order_by('-id')

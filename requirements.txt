@@ -17,6 +17,7 @@ patchright>=1.64.3
 playwright>=1.64.1
 pypasser[vision,speech]>=1.1.0
 tenacity>=9.2.1
+ddddocr==1.6.1
 
 # Dev / Database & Environment
 ipdb>=0.13.13
