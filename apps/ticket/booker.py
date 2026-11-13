@@ -194,8 +194,15 @@ class RajaBooker:
             print(f"خطا در آپدیت وضعیت: {e}")
 
     async def _monitor_and_book(self):
+        # TODO, check task when delete
         await self._update_status(ReservationStatus.MONITORING)
         print("در حال رصد قطار...")
+
+        # پارامترها
+        poll_interval = 0.4  # چک DOM
+        reload_interval = 1.0  # رفرش صفحه
+        reload_jitter = 2.0  # ± تصادفی
+        last_reload = asyncio.get_event_loop().time()
 
         while True:
             try:
@@ -203,37 +210,61 @@ class RajaBooker:
                     "button.lock-btn:has-text('رزرو بلیت')"
                 ).first
 
-                if await book_btn.is_visible() and await book_btn.is_enabled():
+                # ✅ سریع چک کن دکمه رزرو فعال هست یا نه
+                try:
+                    visible = await book_btn.is_visible(timeout=1000)
+                except Exception:
+                    visible = False
+
+                if visible and await book_btn.is_enabled():
                     print("ظرفیت پیدا شد! کلیک روی رزرو بلیت...")
 
-                    # ✅ استخراج شماره قطار
+                    # استخراج شماره قطار (همان کد قبلی شما)
                     try:
                         train_num_element = self.page.locator(
                             ".train-result .train-number"
                         ).first
-
                         if await train_num_element.count() > 0:
                             text_content = await train_num_element.inner_text()
                             match = re.search(r"\d+", text_content)
-                            if match:
-                                train_number = match.group()
-                                print(f"شماره قطار پیدا شده: {train_number}")
-
-                                # ✅ آپدیت شماره قطار در Attempt (نه Reservation)
-                                if self.attempt_id:
-                                    await ReservationAttempt.objects.filter(
-                                        id=self.attempt_id
-                                    ).aupdate(find_train_number=train_number)
+                            if match and self.attempt_id:
+                                await ReservationAttempt.objects.filter(
+                                    id=self.attempt_id
+                                ).aupdate(find_train_number=match.group())
                     except Exception as e:
                         print(f"خطا در استخراج شماره قطار: {e}")
 
                     await book_btn.click()
                     break
-                else:
-                    await self._human_delay()
-            except Exception as e:
-                await self._human_delay()
 
+                # ⏰ اگر خیلی گذشته، صفحه را رفرش کن
+                now = asyncio.get_event_loop().time()
+                if now - last_reload >= reload_interval + random.uniform(
+                        -reload_jitter, reload_jitter
+                ):
+                    print("🔄 رفرش صفحه برای دیدن ظرفیت جدید...")
+                    try:
+                        await self.page.reload(wait_until="domcontentloaded")
+                        await self.page.wait_for_timeout(500)
+
+                        # بعد از reload، فیلترها را دوباره اعمال کن
+                        try:
+                            await self._filter_search_form()
+                        except Exception as e:
+                            print(f"خطا در اعمال دوباره فیلتر بعد از reload: {e}")
+
+                    except Exception as e:
+                        print(f"خطا در reload: {e}")
+
+                    last_reload = asyncio.get_event_loop().time()
+
+                await asyncio.sleep(poll_interval)
+
+            except Exception as e:
+                print(f"خطا در حلقه رصد: {e}")
+                await asyncio.sleep(poll_interval)
+
+        # رفتن به مرحله بعد
         await self.page.locator("button:has-text('ادامه خرید')").click()
         await self._human_delay()
 
@@ -342,19 +373,6 @@ class RajaBooker:
             await date_locator.click()
             await self._human_delay()
 
-        # تعداد مسافران
-        # total_passengers = len(self.passengers)
-        # await self.page.locator("#dropdownPassenger").click()
-        # await self._human_delay()
-
-        # کلیک بر روی دکمه تعداد مسافران
-        # plus_adult_btn = self.page.locator("button[title='plus-adult']")
-        # for _ in range(total_passengers - 1):
-        #     await plus_adult_btn.click()
-        #     await self._human_delay()
-        # await self.page.locator("body").click()
-        # await self._human_delay()
-
         # انتخاب نوع مسافرین
         print(f"در حال انتخاب نوع بلیط: {self.passenger_type}")
         await self.page.locator("#dropdownTikcetType").click()
@@ -391,8 +409,10 @@ class RajaBooker:
             target_id = coupe_map.get(self.coupe_filter)
             if target_id:
                 # پیدا کردن چک‌باکس با id و کلیک روی آن
-                checkbox = self.page.locator(f"#{target_id}")
-                await checkbox.click()
+                label = self.page.locator(f"label[for='{target_id}']")
+                await label.wait_for(state="visible", timeout=10000)
+                await label.scroll_into_view_if_needed()
+                await label.click()
                 await self._human_delay()
                 print("فیلتر نوع کوپه اعمال شد.")
 
@@ -565,13 +585,9 @@ class RajaBooker:
             await self._human_delay()
 
         payment_url = self.page.url
-        split_payment_url = payment_url.split("registerticket")
-        split_payment_url.insert(1, "payment")
-        new_payment_url = "".join(split_payment_url)
-        print(f"لینک درگاه نهایی: {new_payment_url}")
+        print(f"لینک درگاه نهایی: {payment_url}")
         await self._update_status(
-            ReservationStatus.REDIRECT_GATEWAY, payment_url=new_payment_url
+            ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
         )
         print("به درگاه پرداخت رسیدیم برای خارج شدن از مرورگر فقط مرورگر رو ببندید")
-        await self.page.goto(new_payment_url, wait_until="networkidle")
         await self.page.pause()

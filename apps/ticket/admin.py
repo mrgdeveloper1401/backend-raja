@@ -90,7 +90,7 @@ class RestitutionAdmin(admin.ModelAdmin):
         "created_at",
         "status",
         "raja_account_id",
-        "raja_account_phone"
+        "raja_account_phone",
     )
     list_display_links = list_display
     list_per_page = 20
@@ -118,6 +118,6 @@ class RestitutionAdmin(admin.ModelAdmin):
                 "status",
                 "raja_account__username",
                 "updated_at",
-                'error_message'
+                "error_message",
             )
         )

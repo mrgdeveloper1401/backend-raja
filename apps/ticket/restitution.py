@@ -51,7 +51,9 @@ class RestitutionTicket:
 
                 self.context = await p.chromium.launch_persistent_context(
                     user_data_dir=str(
-                        BASE_DIR / "raja_user_data" / f"restitution_ticket_{self.restitution_id}"
+                        BASE_DIR
+                        / "raja_user_data"
+                        / f"restitution_ticket_{self.restitution_id}"
                     ),
                     channel="chrome",
                     headless=self.headless,
@@ -99,8 +101,7 @@ class RestitutionTicket:
     async def _update_status(self, status, error_message=None):
         try:
             return await Restitution.objects.filter(id=self.restitution_id).aupdate(
-                status=status,
-                error_message=error_message if error_message else None
+                status=status, error_message=error_message if error_message else None
             )
         except Exception as e:
             print(f"خطا در آپدیت وضعیت: {e}")
@@ -133,14 +134,16 @@ class RestitutionTicket:
         await asyncio.sleep(delay)
 
     async def _fill_search_form(self):
-        print('در حال رفتن به تب استرداد...')
+        print("در حال رفتن به تب استرداد...")
         # کلیک روی تب استرداد
         await self.page.locator("#t5").click()
         await self._human_delay()
 
-        print('منتظر لود شدن فرم استرداد...')
+        print("منتظر لود شدن فرم استرداد...")
         # صبر می‌کنیم تا فرم (که با Vue.js رندر می‌شود) ظاهر شود
-        await self.page.locator("app-searchrefund").wait_for(state="visible", timeout=10000)
+        await self.page.locator("app-searchrefund").wait_for(
+            state="visible", timeout=10000
+        )
         await self._human_delay()
 
         print("در حال پر کردن اطلاعات استرداد...")

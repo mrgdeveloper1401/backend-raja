@@ -1,8 +1,16 @@
 # apps/ticket/services.py
 from asgiref.sync import sync_to_async
 from django.db import transaction
+from django_bolt.exceptions import HTTPException
+from django_bolt.status_codes import HTTP_404_NOT_FOUND
 
-from apps.ticket.models import Passenger, Reservation, Order, Restitution
+from apps.ticket.models import (
+    Passenger,
+    Reservation,
+    Order,
+    Restitution,
+    ReservationAttempt,
+)
 
 
 async def create_passenger_selector(data: dict) -> Passenger:
@@ -64,3 +72,11 @@ async def create_order_with_reservation_selector(data: dict):
 async def create_restitution(data: dict) -> Reservation:
     restitution = await Restitution.objects.acreate(**data)
     return restitution
+
+
+async def delete_order_services(order_id: int):
+    try:
+        order = await ReservationAttempt.objects.aget(id=order_id)
+    except ReservationAttempt.DoesNotExist:
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND)
+    await order.adelete()

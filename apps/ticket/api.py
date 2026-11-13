@@ -34,6 +34,7 @@ from apps.ticket.services import (
     create_passenger_selector,
     create_order_with_reservation_selector,
     create_restitution,
+    delete_order_services,
 )
 
 api = BoltAPI(prefix="/api/v1/admin")
@@ -182,6 +183,16 @@ async def list_orders(
         tab=tab, search=search, date=date, page=page, page_size=20
     )
     return res
+
+
+@api.delete(
+    "/orders/{order_id}",
+    status_code=204,
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+)
+async def delete_order(order_id: int):
+    return await delete_order_services(order_id=order_id)
 
 
 # روت نمودار

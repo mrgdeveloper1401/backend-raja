@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('ticket', '0026_restitution_raja_account'),
+        ("ticket", "0026_restitution_raja_account"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='restitution',
-            name='error_message',
-            field=models.TextField(blank=True, null=True, verbose_name='خطای اختمالی'),
+            model_name="restitution",
+            name="error_message",
+            field=models.TextField(blank=True, null=True, verbose_name="خطای اختمالی"),
         ),
     ]

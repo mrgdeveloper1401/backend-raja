@@ -230,7 +230,9 @@ class Restitution(TimestampMixin, SoftDeleteMixin):
         blank=True,
         null=True,
     )
-    task_id = models.CharField(_("ایدی تسک سلری"), max_length=100, blank=True, null=True)
+    task_id = models.CharField(
+        _("ایدی تسک سلری"), max_length=100, blank=True, null=True
+    )
 
     def clean(self):
         if not self.raja_account:

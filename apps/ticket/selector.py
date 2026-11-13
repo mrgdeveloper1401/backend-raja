@@ -92,8 +92,8 @@ async def get_paginated_orders_selector(
         queryset = queryset.filter(status=ReservationStatus.FAILED)
 
     # ۲. فیلتر جستجو (بر اساس کد سفارش، نام مسافر، مبدا، مقصد)
-    # if search:
-    #     queryset = queryset.filter(reservation__order__phone=search)
+    if search:
+        queryset = queryset.filter(reservation__order__passenger__phone=search)
 
     # ۳. فیلتر تاریخ
     # if date:
@@ -114,7 +114,9 @@ async def get_paginated_orders_selector(
         items.append(
             {
                 "id": res.reservation_id,
+                "order_id": res.id,
                 "status": res.status,
+                "find_train_number": res.find_train_number,
                 "passenger_name": f"{res.reservation.order.passenger.first_name} {res.reservation.order.passenger.last_name}",
                 "passenger_phone": res.reservation.order.passenger.phone,
                 "origin": res.reservation.order.origin,
@@ -280,4 +282,4 @@ async def dashboard_chart_status_selector():
 
 async def restitution_list_selector():
     # return [item async for item in Restitution.objects.order_by('id')]
-    return Restitution.objects.order_by('-id')
+    return Restitution.objects.order_by("-id")

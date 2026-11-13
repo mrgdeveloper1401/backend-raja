@@ -49,8 +49,10 @@ class ReservationListSchema(Serializer):
 
 class OrderListSchema(Serializer):
     id: int
+    order_id: int
     passenger_name: str
     passenger_phone: str
+    find_train_number: Union[str, int]
     origin: str
     destination: str
     travel_date: date
