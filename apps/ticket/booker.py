@@ -573,5 +573,5 @@ class RajaBooker:
             ReservationStatus.REDIRECT_GATEWAY, payment_url=new_payment_url
         )
         print("به درگاه پرداخت رسیدیم برای خارج شدن از مرورگر فقط مرورگر رو ببندید")
-        await self.page.goto(new_payment_url, wait_until="networkidle")
+        # await self.page.goto(new_payment_url, wait_until="networkidle")
         await self.page.pause()
