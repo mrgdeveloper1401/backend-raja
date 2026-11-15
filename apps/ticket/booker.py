@@ -41,14 +41,21 @@ class RajaBooker:
         passengers,
         passenger_type,
         headless=False,
-        # reservation_id=None,
         attempt_id=None,
+        is_exclusive=None,
         travel_phone=None,
-        browser=None,
         is_want_and_return=False,
         to_date=None,
         coupe_filter=None,
         order_by_filter=None,
+        from_price=None,
+        to_price=None,
+        train_number=None,
+        salon=None,
+        departure_time_from=None,
+        departure_time_to=None,
+        arrival_time_from=None,
+        arrival_time_to=None,
     ):
         self.account_id = account_id
         self.origin = origin
@@ -56,7 +63,6 @@ class RajaBooker:
         self.travel_date = travel_date
         self.passengers = passengers
         self.headless = headless
-        # self.reservation_id = reservation_id
         self.attempt_id = attempt_id
         self.travel_phone = travel_phone
         self.page = None
@@ -66,6 +72,15 @@ class RajaBooker:
         self.passenger_type = passenger_type
         self.coupe_filter = coupe_filter
         self.order_by_filter = order_by_filter
+        self.is_exclusive = is_exclusive
+        self.from_price = from_price
+        self.to_price = to_price
+        self.train_number = train_number
+        self.salon = salon
+        self.departure_time_from = departure_time_from
+        self.departure_time_to = departure_time_to
+        self.arrival_time_from = arrival_time_from
+        self.arrival_time_to = arrival_time_to
 
     async def start(self):
         try:
@@ -132,6 +147,9 @@ class RajaBooker:
                 # فیلتر کردن نتایج
                 await self._filter_search_form()
 
+                # فیلتر قیمت
+                await self._filter_by_price()
+
                 # ۳. رصد و رزرو
                 print("شروع رصد...")
                 await self._monitor_and_book()
@@ -193,63 +211,161 @@ class RajaBooker:
         except Exception as e:
             print(f"خطا در آپدیت وضعیت: {e}")
 
-    async def _monitor_and_book(self):
-        # TODO, check task when delete
-        await self._update_status(ReservationStatus.MONITORING)
-        print("در حال رصد قطار...")
+    async def _filter_by_time(self):
+        print("در حال اعمال فیلترهای زمانی...")
 
-        # پارامترها
-        poll_interval = 0.4  # چک DOM
-        reload_interval = 1.0  # رفرش صفحه
-        reload_jitter = 2.0  # ± تصادفی
+        def get_time_range(from_h, to_h):
+            if from_h is None and to_h is None:
+                return None
+            f = from_h if from_h is not None else 0
+            t = to_h if to_h is not None else 24
+
+            if f >= 18 and t <= 24:
+                return "t18_24"
+            if f >= 12 and t <= 18:
+                return "t12_18"
+            if f >= 6 and t <= 12:
+                return "t6_12"
+            if f >= 0 and t <= 6:
+                return "t0_6"
+            if f == 0 and t == 24:
+                return "t0_24"
+
+            if f >= 18:
+                return "t18_24"
+            if f >= 12:
+                return "t12_18"
+            if f >= 6:
+                return "t6_12"
+            return "t0_6"
+
+        dep_range = get_time_range(self.departure_time_from, self.departure_time_to)
+        if dep_range:
+            try:
+                btn = self.page.locator(f"div[name='GoMoveTime'] i.{dep_range}")
+                await btn.click(force=True)
+                await self._human_delay()
+                print(f"فیلتر زمان حرکت ({dep_range}) اعمال شد.")
+            except Exception as e:
+                print(f"خطا در اعمال فیلتر زمان حرکت: {e}")
+
+        arr_range = get_time_range(self.arrival_time_from, self.arrival_time_to)
+        if arr_range:
+            try:
+                btn = self.page.locator(f"div[name='GoArrival'] i.{arr_range}")
+                await btn.click(force=True)
+                await self._human_delay()
+                print(f"فیلتر زمان ورود ({arr_range}) اعمال شد.")
+            except Exception as e:
+                print(f"خطا در اعمال فیلتر زمان ورود: {e}")
+
+    async def _monitor_and_book(self):
+        await self._update_status(ReservationStatus.MONITORING)
+        print(
+            f"در حال رصد قطار... (شماره قطار مورد نظر: {self.train_number or 'همه قطارها'})"
+        )
+
+        poll_interval = 0.4
+        reload_interval = 1.0
+        reload_jitter = 1.0
         last_reload = asyncio.get_event_loop().time()
+
+        # نگاشت مقادیر انتخابی کاربر به متن‌های موجود در سایت رجا
+        salon_map = {
+            "4_star_4_coupe": "4 ستاره 4 تخته",
+            "4_star_5_coupe": "4 ستاره 5 تخته",
+            "5_star": "5 ستاره",
+            "3_star_6_coupe": "3 ستاره 6 تخته",
+        }
+        target_salon_text = salon_map.get(self.salon, "") if self.salon else ""
 
         while True:
             try:
-                book_btn = self.page.locator(
-                    "button.lock-btn:has-text('رزرو بلیت')"
-                ).first
+                # پیدا کردن همه کارت‌های قطار در صفحه
+                train_cards = self.page.locator(".train-result")
+                count = await train_cards.count()
 
-                # ✅ سریع چک کن دکمه رزرو فعال هست یا نه
-                try:
-                    visible = await book_btn.is_visible(timeout=1000)
-                except Exception:
-                    visible = False
+                if count > 0:
+                    for i in range(count):
+                        card = train_cards.nth(i)
+                        salon_text = "همه سالن‌ها"
+                        # ۱. استخراج شماره قطار از داخل کارت
+                        train_num_element = card.locator(".train-number")
+                        if await train_num_element.count() == 0:
+                            continue
 
-                if visible and await book_btn.is_enabled():
-                    print("ظرفیت پیدا شد! کلیک روی رزرو بلیت...")
+                        text_content = await train_num_element.inner_text()
+                        match = re.search(r"\d+", text_content)
+                        current_train_num = match.group() if match else None
 
-                    # استخراج شماره قطار (همان کد قبلی شما)
-                    try:
-                        train_num_element = self.page.locator(
-                            ".train-result .train-number"
+                        # ۲. بررسی تطابق با شماره قطار مورد نظر
+                        # اگر کاربر شماره قطار وارد کرده باشد و با شماره فعلی فرق داشته باشد، این کارت را رد می‌کنیم
+                        if self.train_number and str(current_train_num) != str(
+                            self.train_number
+                        ):
+                            continue
+
+                        # ۲. استخراج نام سالن (جدید)
+                        if target_salon_text:
+                            salon_element = card.locator(".train-name")
+                            if await salon_element.count() > 0:
+                                salon_text = await salon_element.inner_text()
+                                # بررسی اینکه آیا متن سالن مورد نظر در متن سایت وجود دارد یا خیر
+                                if target_salon_text not in salon_text:
+                                    continue
+
+                        # ۳. بررسی وجود دکمه رزرو در این کارت
+                        book_btn = card.locator(
+                            "button.lock-btn:has-text('رزرو بلیت')"
                         ).first
-                        if await train_num_element.count() > 0:
-                            text_content = await train_num_element.inner_text()
-                            match = re.search(r"\d+", text_content)
-                            if match and self.attempt_id:
+
+                        try:
+                            visible = await book_btn.is_visible(timeout=1000)
+                        except Exception:
+                            visible = False
+
+                        if visible and await book_btn.is_enabled():
+                            print(
+                                f"✅ ظرفیت برای قطار {current_train_num} پیدا شد! کلیک روی رزرو بلیت..."
+                            )
+
+                            # ذخیره شماره قطار در دیتابیس
+                            if self.attempt_id:
                                 await ReservationAttempt.objects.filter(
                                     id=self.attempt_id
-                                ).aupdate(find_train_number=match.group())
-                    except Exception as e:
-                        print(f"خطا در استخراج شماره قطار: {e}")
+                                ).aupdate(find_train_number=current_train_num)
 
-                    await book_btn.click()
-                    break
+                            await book_btn.click()
+
+                            # رفتن به مرحله بعد
+                            await self.page.locator(
+                                "button:has-text('ادامه خرید')"
+                            ).click()
+                            await self._human_delay()
+                            return  # خروج از متد چون رزرو انجام شد
+                        else:
+                            # اگر شماره قطار مورد نظر بود ولی ظرفیت نداشت، لاگ می‌کنیم
+                            if self.train_number and str(current_train_num) == str(
+                                self.train_number
+                            ):
+                                print(
+                                    f"⏳ قطار {current_train_num} پیدا شد اما ظرفیت ندارد. در حال انتظار..."
+                                )
 
                 # ⏰ اگر خیلی گذشته، صفحه را رفرش کن
                 now = asyncio.get_event_loop().time()
                 if now - last_reload >= reload_interval + random.uniform(
-                        -reload_jitter, reload_jitter
+                    -reload_jitter, reload_jitter
                 ):
                     print("🔄 رفرش صفحه برای دیدن ظرفیت جدید...")
                     try:
                         await self.page.reload(wait_until="domcontentloaded")
                         await self.page.wait_for_timeout(500)
 
-                        # بعد از reload، فیلترها را دوباره اعمال کن
                         try:
                             await self._filter_search_form()
+                            await self._filter_by_price()
+                            await self._filter_by_time()
                         except Exception as e:
                             print(f"خطا در اعمال دوباره فیلتر بعد از reload: {e}")
 
@@ -264,9 +380,90 @@ class RajaBooker:
                 print(f"خطا در حلقه رصد: {e}")
                 await asyncio.sleep(poll_interval)
 
-        # رفتن به مرحله بعد
-        await self.page.locator("button:has-text('ادامه خرید')").click()
-        await self._human_delay()
+    async def _filter_by_price(self):
+        if not self.from_price and not self.to_price:
+            return
+
+        print(
+            f"در حال اعمال فیلتر قیمت: از {self.from_price} تا {self.to_price} (هزار تومان)"
+        )
+
+        # چون کاربر قیمت را به هزار تومان وارد کرده، نیازی به تقسیم نیست
+        target_min = int(self.from_price) if self.from_price else 0
+        target_max = int(self.to_price) if self.to_price else 10000
+
+        try:
+            # استفاده از جاوااسکریپت برای شبیه‌سازی حرکت دستگیره‌ها
+            # این روش از لایه‌های مزاحم (interceptors) عبور می‌کند
+            script = f"""
+                () => {{
+                    const minHandle = document.querySelector('.ng5-slider-pointer-min');
+                    const maxHandle = document.querySelector('.ng5-slider-pointer-max');
+
+                    if (minHandle && maxHandle) {{
+                        // شبیه‌سازی رویداد mousedown روی دستگیره حداقل
+                        if ({target_min} > 0) {{
+                            const rect = minHandle.getBoundingClientRect();
+                            const mousedownEvent = new MouseEvent('mousedown', {{
+                                bubbles: true,
+                                cancelable: true,
+                                view: window,
+                                clientX: rect.left + rect.width / 2,
+                                clientY: rect.top + rect.height / 2
+                            }});
+                            minHandle.dispatchEvent(mousedownEvent);
+
+                            // شبیه‌سازی حرکت ماوس به سمت راست (مقدار جدید)
+                            // ما مستقیماً مقدار aria-valuenow را تغییر می‌دهیم و رویداد input را صدا می‌زنیم
+                            minHandle.setAttribute('aria-valuenow', '{target_min}');
+                            minHandle.setAttribute('aria-valuetext', '{target_min}');
+
+                            // برای انگولار، رویداد input و change ضروری است
+                            minHandle.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            minHandle.dispatchEvent(new Event('change', {{ bubbles: true }}));
+
+                            // شبیه‌سازی mouseup
+                            const mouseupEvent = new MouseEvent('mouseup', {{ bubbles: true }});
+                            minHandle.dispatchEvent(mouseupEvent);
+                        }}
+
+                        // شبیه‌سازی رویداد mousedown روی دستگیره حداکثر
+                        if ({target_max} < 10000) {{
+                            const rect = maxHandle.getBoundingClientRect();
+                            const mousedownEvent = new MouseEvent('mousedown', {{
+                                bubbles: true,
+                                cancelable: true,
+                                view: window,
+                                clientX: rect.left + rect.width / 2,
+                                clientY: rect.top + rect.height / 2
+                            }});
+                            maxHandle.dispatchEvent(mousedownEvent);
+
+                            maxHandle.setAttribute('aria-valuenow', '{target_max}');
+                            maxHandle.setAttribute('aria-valuetext', '{target_max}');
+
+                            maxHandle.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            maxHandle.dispatchEvent(new Event('change', {{ bubbles: true }}));
+
+                            const mouseupEvent = new MouseEvent('mouseup', {{ bubbles: true }});
+                            maxHandle.dispatchEvent(mouseupEvent);
+                        }}
+                    }}
+                }}
+            """
+            await self.page.evaluate(script)
+
+            # صبر می‌کنیم تا انگولار تغییرات را پردازش کند و لیست نتایج آپدیت شود
+            await asyncio.sleep(1.5)
+
+            print("فیلتر قیمت با شبیه‌سازی رویدادها اعمال شد.")
+            await self._human_delay()
+
+        except Exception as e:
+            print(f"خطا در اعمال فیلتر قیمت: {e}")
+
+        # ۳. فیلتر بازه قیمت
+        await self._filter_by_price()
 
     # ====================== متدهای انسانی ======================
 
@@ -390,6 +587,15 @@ class RajaBooker:
         await self._human_delay()
         print(f"نوع بلیط {target_text} انتخاب شد ")
 
+        # اگر کوپه دربت باشه
+        if self.is_exclusive:
+            exclusive_label = self.page.locator(
+                "label.custom-control-label", has_text="کوپه دربست باشد"
+            )
+            await exclusive_label.click()
+            await self._human_delay()
+            print("کوپه دربست انتخاب شد")
+
         # جستجو
         await self.page.locator("#btnsearchticket").click()
         await self._human_delay()
@@ -438,6 +644,12 @@ class RajaBooker:
                 await sort_button.click()
                 await self._human_delay()
                 print(f"مرتب‌سازی بر اساس {target_text} اعمال شد.")
+
+        # فیلتر قسمت
+        await self._filter_by_price()
+
+        # فیلتر زمانی
+        await self._filter_by_time()
 
     async def _fill_passenger_details(self):
         await self._human_delay()

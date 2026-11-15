@@ -33,6 +33,8 @@ def run_attempt_task(attempt_id):
     attempt = ReservationAttempt.objects.select_related(
         "reservation__order__passenger"
     ).get(id=attempt_id)
+
+    # get reservation
     reservation = attempt.reservation
 
     # تبدیل تاریخ میلادی دیتابیس به شمسی برای ربات
@@ -75,10 +77,15 @@ def run_attempt_task(attempt_id):
         attempt_id=attempt.id,
         travel_phone=reservation.order.passenger.phone,
         is_want_and_return=reservation.order.trip_type == "outbound_and_return",
+        is_exclusive=reservation.is_exclusive,
         to_date=to_date_jalali,
         passenger_type=reservation.order.passenger_type,
         coupe_filter=reservation.coupe_type,
         order_by_filter=reservation.order_by,
+        from_price=reservation.from_price,
+        to_price=reservation.to_price,
+        train_number=reservation.train_number,
+        salon=reservation.salon,
     )
 
     # تنظیم Event Loop مناسب قبل از اجرای کد async

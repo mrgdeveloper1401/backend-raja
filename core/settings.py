@@ -156,7 +156,7 @@ else:
     CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", cast=Csv(), default=None)
 
 # jwt token
-ACCESS_TOKEN_EXPIRE = 60 * 60
+ACCESS_TOKEN_EXPIRE = 60 * 60 * 5
 REFRESH_TOKEN_EXPIRE = 60 * 60 * 24 * 30
 
 if DEBUG:

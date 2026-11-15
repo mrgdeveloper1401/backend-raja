@@ -66,9 +66,10 @@ class OrderAdmin(admin.ModelAdmin):
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
     list_per_page = 30
-    list_display = ("id", "order_id", "raja_account_id", "created_at")
+    list_display = ("id", "order_id", "raja_account_id", "is_exclusive", "created_at")
     raw_id_fields = ("order", "raja_account")
     list_display_links = list_display
+    list_filter = ("is_exclusive", "created_at")
 
 
 @admin.register(ReservationAttempt)

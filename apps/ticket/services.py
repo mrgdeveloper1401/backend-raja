@@ -62,6 +62,15 @@ async def create_order_with_reservation_selector(data: dict):
                 raja_account_id=data["raja_account_id"],
                 coupe_type=data["coupe_type"],
                 order_by=data["order_by"],
+                is_exclusive=data["is_exclusive"],
+                departure_time_from=data["departure_time_from"],
+                departure_time_to=data["departure_time_to"],
+                arrival_time_from=data["arrival_time_from"],
+                arrival_time_to=data["arrival_time_to"],
+                from_price=data["from_price"],
+                to_price=data["to_price"],
+                train_number=data["train_number"],
+                salon=data["salon"],
             )
 
             return order, reservation

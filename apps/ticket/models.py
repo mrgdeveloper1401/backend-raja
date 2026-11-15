@@ -24,6 +24,13 @@ class RestitutionEnum(models.TextChoices):
     PENDING = "pending", _("انتظار")
 
 
+class SalonType(models.TextChoices):
+    FOUR_STAR_FOUR_COUPE = "4_star_4_coupe", _("4 ستاره 4 تخته")
+    FOUR_STAR_FIVE_COUPE = "4_star_5_coupe", _("4 ستاره 5 تخته")  # طبق درخواست شما
+    FIVE_STAR = "5_star", _("5 ستاره")
+    THREE_STAR_SIX_COUPE = "3_star_6_coupe", _("3 ستاره 6 تخته")
+
+
 class Passenger(TimestampMixin, SoftDeleteMixin):
     class Gender(models.TextChoices):
         MALE = "male", "مرد"
@@ -139,25 +146,6 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
     raja_account = models.ForeignKey(
         RajaAccount, on_delete=models.CASCADE, verbose_name="اکانت رجا"
     )
-    # status = models.CharField(
-    #     max_length=20,
-    #     choices=ReservationStatus.choices,
-    #     default=ReservationStatus.PENDING,
-    #     verbose_name="وضعیت",
-    # )
-    # payment_url = models.URLField(
-    #     blank=True, null=True, verbose_name="لینک درگاه پرداخت"
-    # )
-    # error_message = models.TextField(blank=True, null=True, verbose_name="پیام خطا")
-    # celery_task_id = models.CharField(
-    #     max_length=50, blank=True, null=True, verbose_name="شناسه تسک سلری"
-    # )
-    # number_reservation = models.PositiveSmallIntegerField(
-    #     _("تعداد رزور"),
-    #     validators=[MinValueValidator(1), MaxValueValidator(5)],
-    #     default=1,
-    #     db_default=1,
-    # )
     coupe_type = models.CharField(
         _("نوع کوپه"), max_length=8, blank=True, null=True, choices=CoupeType.choices
     )
@@ -169,19 +157,56 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
         choices=OrderBy.choices,
         default=OrderBy.CLOCK,
     )
+    is_exclusive = models.BooleanField(_("کوپه دربست"), default=False, db_default=False)
+    # زمان حرکت (قطار رفت)
+    departure_time_from = models.PositiveSmallIntegerField(
+        _("زمان حرکت (از)"),
+        blank=True,
+        null=True,
+        help_text=_("بازه زمانی حضور قطار در ایستگاه مبدا (شروع)"),
+    )
+    departure_time_to = models.PositiveSmallIntegerField(
+        _("زمان حرکت (تا)"),
+        blank=True,
+        null=True,
+        help_text=_("بازه زمانی حضور قطار در ایستگاه مبدا (پایان)"),
+    )
+
+    # زمان ورود به ایستگاه (مقصد)
+    arrival_time_from = models.PositiveSmallIntegerField(
+        _("زمان ورود به ایستگاه (از)"),
+        blank=True,
+        null=True,
+        help_text=_("زمان تقریبی ورود به ایستگاه مقصد (شروع)"),
+    )
+    arrival_time_to = models.PositiveSmallIntegerField(
+        _("زمان ورود به ایستگاه (تا)"),
+        blank=True,
+        null=True,
+        help_text=_("زمان تقریبی ورود به ایستگاه مقصد (پایان)"),
+    )
+
+    from_price = models.DecimalField(
+        blank=True, null=True, max_digits=10, decimal_places=2
+    )
+    to_price = models.DecimalField(
+        blank=True, null=True, max_digits=10, decimal_places=2
+    )
+    train_number = models.CharField(
+        _("شماره قطار"), blank=True, max_length=10, null=True
+    )
+
+    adult_number = models.PositiveSmallIntegerField(default=1, db_default=1)
+    baby_number = models.PositiveSmallIntegerField(default=0, db_default=0)
+
+    salon = models.CharField(
+        _("سالن"), max_length=50, blank=True, null=True, choices=SalonType.choices
+    )
 
     class Meta:
         db_table = "reservations"
         verbose_name = "رزرو"
         verbose_name_plural = "رزروها"
-        # constraints = [
-        #     models.CheckConstraint(
-        #         condition=models.Q(
-        #             number_reservation__gte=1, number_reservation__lte=5
-        #         ),
-        #         name="reservation_number_between_1_5",
-        #     ),
-        # ]
 
 
 class ReservationAttempt(TimestampMixin, SoftDeleteMixin):

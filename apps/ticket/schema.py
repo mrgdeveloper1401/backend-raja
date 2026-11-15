@@ -1,9 +1,10 @@
+from decimal import Decimal
 from enum import Enum
 from typing import Optional, List, Literal, Union, Annotated
 
 from django_bolt import PageNumberPagination
 from django_bolt.serializers import Serializer
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 
 class TripTypeEnum(Enum):
@@ -60,6 +61,18 @@ class OrderListSchema(Serializer):
     passenger_type: PassengerTypeEnum
     trip_type: TripTypeEnum
     status: Union[str, None]
+    is_exclusive: bool
+    adult_number: int
+    baby_number: int
+    departure_time_from: int | None = None
+    departure_time_to: int | None = None
+    arrival_time_from: int | None = None
+    arrival_time_to: int | None = None
+    to_date: str | None = None
+    from_price: Decimal | None = None
+    to_price: Decimal | None = None
+    train_number: str | None = None
+    salon: str | None = None
 
 
 class PaginatedOrdersSchema(Serializer):
@@ -131,27 +144,42 @@ class PassengerNewDetailSchema(Serializer):
     orders: List[PassengerOrderSchema] = []
 
 
+import msgspec
+from typing import Literal, Optional
+
+
 class OrderCreateSchema(Serializer):
-    # اطلاعات مسافر (اگر مسافر جدید است)
     first_name: str
     last_name: str
     national_id: str
     gender: Literal["male", "female"]
     phone: str
     birth_date: str
-
-    # اطلاعات سفر
+    is_exclusive: bool
     origin: str
     destination: str
     travel_date: str
-    to_date: str | None = None
     passenger_type: Literal["normal", "woman", "man"]
     trip_type: Literal["outbound", "outbound_and_return"]
-    coupe_type: Literal["four", "six", "for_row", None]
+    coupe_type: Optional[Literal["four", "six", "for_row"]] = None
     order_by: Literal["clock", "cheap", "expensive", "owner"]
 
-    # اکانت رجا
-    raja_account_id: Union[str, int]
+    # در اینجا حتماً باید int باشد، نه str
+    raja_account_id: int
+
+    to_date: Optional[str] = None
+
+    # --- فیلدهای زمانی (باید int باشند) ---
+    departure_time_from: Optional[int] = None
+    departure_time_to: Optional[int] = None
+    arrival_time_from: Optional[int] = None
+    arrival_time_to: Optional[int] = None
+
+    # اگر این فیلدها را هم در فرانت‌اند می‌فرستید، باید اینجا تعریف شوند:
+    from_price: Optional[float] = None
+    to_price: Optional[float] = None
+    train_number: Optional[str] = None
+    salon: Optional[str] = None
 
 
 class RajaAccountOptionSchema(Serializer):

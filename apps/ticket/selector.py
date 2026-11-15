@@ -116,6 +116,7 @@ async def get_paginated_orders_selector(
                 "id": res.reservation_id,
                 "order_id": res.id,
                 "status": res.status,
+                "is_exclusive": res.reservation.is_exclusive,
                 "find_train_number": res.find_train_number,
                 "passenger_name": f"{res.reservation.order.passenger.first_name} {res.reservation.order.passenger.last_name}",
                 "passenger_phone": res.reservation.order.passenger.phone,
@@ -125,6 +126,16 @@ async def get_paginated_orders_selector(
                 "to_date": res.reservation.order.to_date,
                 "passenger_type": res.reservation.order.passenger_type,
                 "trip_type": res.reservation.order.trip_type,
+                "to_price": res.reservation.to_price,
+                "from_price": res.reservation.from_price,
+                "train_number": res.reservation.train_number,
+                "salon": res.reservation.salon,
+                "departure_time_from": res.reservation.departure_time_from,
+                "departure_time_to": res.reservation.departure_time_to,
+                "arrival_time_from": res.reservation.arrival_time_from,
+                "arrival_time_to": res.reservation.arrival_time_to,
+                "adult_number": res.reservation.adult_number,
+                "baby_number": res.reservation.baby_number,
             }
         )
 
