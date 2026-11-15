@@ -18,19 +18,6 @@ class PassengerTypeEnum(Enum):
     NORMAL = "normal"
 
 
-class CoupeTypeEnum(Enum):
-    FOUR = "four"
-    SIX = "six"
-    FOR_ROW = "for_row"
-
-
-class OrderByEnum(Enum):
-    CLOCK = "clock"
-    CHEAP = "cheap"
-    EXPENSIVE = "expensive"
-    OWNER = "owner"
-
-
 class DashboardStatusSchema(Serializer):
     failed_count: int
     success_count: int
@@ -62,7 +49,7 @@ class OrderListSchema(Serializer):
     baby_number: int
     departure_time_from: int | None = None
     departure_time_to: int | None = None
-    to_date: str | None = None
+    to_date: Optional[date] = None
     from_price: Decimal | None = None
     to_price: Decimal | None = None
     train_number: str | None = None
@@ -153,33 +140,34 @@ class PassengerNewDetailSchema(Serializer):
     orders: List[PassengerOrderSchema] = []
 
 
-import msgspec
-from typing import Literal, Optional
-
-
-class OrderCreateSchema(Serializer):
+class OrderCreatePassengerSchema(Serializer):
     first_name: str
     last_name: str
     national_id: str
-    phone: str
     birth_date: str
-    is_exclusive: bool
+
+
+class OrderCreateSchema(Serializer):
     origin: str
     destination: str
+    trip_type: Literal["outbound", "outbound_and_return"]
     travel_date: str
     passenger_type: Literal["normal", "woman", "man"]
-    trip_type: Literal["outbound", "outbound_and_return"]
-    raja_account_id: int
-    to_date: Optional[str] = None
-    departure_time_from: Optional[int] = None
-    departure_time_to: Optional[int] = None
-    arrival_time_from: Optional[int] = None
-    arrival_time_to: Optional[int] = None
-    from_price: Optional[float] = None
-    to_price: Optional[float] = None
-    train_number: Optional[str] = None
-    salon: Optional[str] = None
-    coupe_type: Optional[Literal["four", "six", "for_row"]] = None
+    passengers: List[OrderCreatePassengerSchema]
+    raja_account_id: int | str
+    is_exclusive: bool
+    departure_time_from: int
+    departure_time_to: int
+    adult_number: int
+    baby_number: int
+    phone: str
+    to_date: Union[str, None] = None
+    from_price: Decimal | None = None
+    to_price: Decimal | None = None
+    train_number: str | None = None
+    coupe_type: Optional[
+        Literal["all", "four_four", "four_five", "three", "five", "salon"]
+    ] = None
 
 
 class RajaAccountOptionSchema(Serializer):
@@ -222,3 +210,28 @@ class RestitutionPagination(PageNumberPagination):
     page_size = 20
     max_page_size = 100
     page_size_query_param = "page_size"
+
+
+class OrderUpdateSchema(Serializer):
+    # فیلدهای سفارش
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    travel_date: Optional[date] = None
+    to_date: Optional[date] = None
+    passenger_type: Optional[PassengerTypeEnum] = None
+    trip_type: Optional[TripTypeEnum] = None
+
+    # فیلدهای رزرو
+    raja_account_id: Optional[int] = None
+    coupe_type: Optional[str] = None
+    is_exclusive: Optional[bool] = None
+    departure_time_from: Optional[int] = None
+    departure_time_to: Optional[int] = None
+    from_price: Optional[Decimal] = None
+    to_price: Optional[Decimal] = None
+    train_number: Optional[str] = None
+    salon: Optional[str] = None
+    phone: Optional[str] = None
+
+    # فیلد برای شروع مجدد ربات
+    restart_robot: Optional[bool] = False

@@ -145,6 +145,7 @@ class OrderPassenger(SoftDeleteMixin, TimestampMixin):
 
 class Reservation(TimestampMixin, SoftDeleteMixin):
     class CoupeType(models.TextChoices):
+        ALL = "all", _("هر نوع کوه ای")
         FOUR = "four", _("4 تخته 4 ستاره")
         FOUR_FIVE = "four_five", _("4 تخته 5 ستاره")
         THREE = "three", _("سه ستاره")

@@ -19,6 +19,7 @@ from apps.ticket.schema import (
     RestitutionSchema,
     RestitutionPagination,
     OrderDetailSchema,
+    OrderUpdateSchema,
 )
 from apps.ticket.selector import (
     dashboard_status_selector,
@@ -37,6 +38,7 @@ from apps.ticket.services import (
     create_order_with_reservation_selector,
     create_restitution,
     delete_order_services,
+    update_order_and_restart_selector,
 )
 
 api = BoltAPI(prefix="/api/v1/admin")
@@ -245,3 +247,22 @@ async def restitution(data: RestitutionSchema):
 async def restitution_list(request) -> List[RestitutionResponseSchema]:
     res = await restitution_list_selector()
     return res
+
+
+@api.patch(
+    "/order/{order_id}",
+    status_code=200,
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+)
+async def update_order(order_id: int, payload: OrderUpdateSchema):
+    try:
+        # فقط فیلدهایی که مقدار دارند را به دیکشنری تبدیل می‌کنیم
+        update_data = {k: v for k, v in payload.to_dict().items() if v is not None}
+        await update_order_and_restart_selector(order_id, update_data)
+        return {
+            "message": "سفارش با موفقیت ویرایش شد",
+            "restarted": update_data.get("restart_robot", False),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

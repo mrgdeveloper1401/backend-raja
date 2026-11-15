@@ -467,7 +467,7 @@ class RajaBooker:
 
     # ====================== متدهای انسانی ======================
 
-    async def _human_delay(self, min_ms=0.1, max_ms=0.9):
+    async def _human_delay(self, min_ms=0.1, max_ms=0.2):
         """تأخیر تصادفی انسانی"""
         delay = random.uniform(min_ms, max_ms)
         print(f"⏸️ تأخیر انسانی: {delay:.1f} میلی‌ثانیه")

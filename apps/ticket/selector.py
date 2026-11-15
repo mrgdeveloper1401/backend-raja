@@ -205,9 +205,7 @@ async def get_paginated_passengers_selector(
     queryset = Passenger.objects.all()
 
     if search:
-        queryset = queryset.filter(
-            Q(first_name=search) | Q(last_name=search)
-        )
+        queryset = queryset.filter(Q(first_name=search) | Q(last_name=search))
 
     # از طریق جدول واسط OrderPassenger به Order می‌رسیم
     last_order_subquery = (
