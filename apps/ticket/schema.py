@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, List, Literal, Union, Annotated
+from typing import Optional, List, Literal, Union
 
 from django_bolt import PageNumberPagination
 from django_bolt.serializers import Serializer
@@ -212,6 +212,13 @@ class RestitutionPagination(PageNumberPagination):
     page_size_query_param = "page_size"
 
 
+# در schema.py
+class OrderUpdatePassengerSchema(Serializer):
+    first_name: str
+    last_name: str
+    national_id: str
+    birth_date: str
+
 class OrderUpdateSchema(Serializer):
     # فیلدهای سفارش
     origin: Optional[str] = None
@@ -232,6 +239,12 @@ class OrderUpdateSchema(Serializer):
     train_number: Optional[str] = None
     salon: Optional[str] = None
     phone: Optional[str] = None
+    adult_number: Optional[int] = None
+    baby_number: Optional[int] = None
 
-    # فیلد برای شروع مجدد ربات
+    # لیست مسافران جدید (اختیاری)
+    passengers: Optional[List[OrderUpdatePassengerSchema]] = None
+
+    # وضعیت و شروع مجدد
+    status: Optional[str] = None
     restart_robot: Optional[bool] = False

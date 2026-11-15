@@ -257,7 +257,6 @@ async def restitution_list(request) -> List[RestitutionResponseSchema]:
 )
 async def update_order(order_id: int, payload: OrderUpdateSchema):
     try:
-        # فقط فیلدهایی که مقدار دارند را به دیکشنری تبدیل می‌کنیم
         update_data = {k: v for k, v in payload.to_dict().items() if v is not None}
         await update_order_and_restart_selector(order_id, update_data)
         return {
