@@ -9,11 +9,10 @@ from apps.user.models import RajaAccount
 
 
 class ReservationStatus(models.TextChoices):
+    WAITING_START = "waiting_start", _("در انتظار شروع")
     PENDING = "pending", _("انتظار")
     MONITORING = "monitoring", _("در حال رصد")
-    BOOKING = "booking", _("در حال رزرو")
     REDIRECT_GATEWAY = "redirect_gateway", _("هدایت به درگاه پرداخت")
-    SUCCESS = "success", _("موفق")
     FAILED = "failed", _("ناموفق")
     CAPTCHA = "captcha", _("حل کپچا")
 
@@ -39,12 +38,30 @@ class Passenger(TimestampMixin, SoftDeleteMixin):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     national_id = models.CharField(max_length=10)
-    gender = models.CharField(max_length=10, choices=Gender.choices)
     birth_date = models.DateField(null=True, blank=True)
-    phone = models.CharField(max_length=15)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+    @property
+    def is_adult(self):
+        """
+        بررسی می‌کند که آیا مسافر ۱۲ سال به بالا هست یا خیر.
+        اگر تاریخ تولد ثبت نشده باشد، به صورت پیش‌فرض بزرگسال در نظر گرفته می‌شود.
+        """
+        if not self.birth_date:
+            return True  # یا False، بسته به منطق کسب و کار شما (معمولاً بزرگسال در نظر می‌گیرند)
+
+        today = timezone.now().date()
+
+        # محاسبه سن دقیق
+        age = today.year - self.birth_date.year
+
+        # اگر هنوز به ماه تولد نرسیده یا در همان ماه به روز تولد نرسیده، یک سال از سن کم می‌کنیم
+        if (today.month, today.day) < (self.birth_date.month, self.birth_date.day):
+            age -= 1
+
+        return age >= 12
 
     class Meta:
         db_table = "passengers"
@@ -62,12 +79,6 @@ class Order(TimestampMixin, SoftDeleteMixin):
         OUT_BOUND = "outbound", _("تک سفر")
         OUT_BOUND_AND_RETURN = "outbound_and_return", _("مسیر رفت و برگشت")
 
-    passenger = models.ForeignKey(
-        Passenger,
-        on_delete=models.DO_NOTHING,
-        related_name="passenger_orders",
-        db_index=False,
-    )
     origin = models.CharField(max_length=100, verbose_name="مبدا")
     destination = models.CharField(max_length=100, verbose_name="مقصد")
     trip_type = models.CharField(
@@ -110,26 +121,35 @@ class Order(TimestampMixin, SoftDeleteMixin):
         verbose_name_plural = _("سفارش‌ها")
 
 
-class OrderItem(TimestampMixin, SoftDeleteMixin):
-    """جدول واسط برای مسافران هر سفارش"""
-
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
-    passenger = models.ForeignKey(
-        Passenger, on_delete=models.PROTECT, related_name="order_items"
+class OrderPassenger(SoftDeleteMixin, TimestampMixin):
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name="order_passenger"
     )
-    is_adult = models.BooleanField(default=True, help_text=_("بزرگسال هست؟"))
+    passenger = models.ForeignKey(
+        Passenger, on_delete=models.CASCADE, related_name="passenger_order"
+    )
 
     class Meta:
-        db_table = "order_items"
-        verbose_name = "آیتم سفارش"
-        verbose_name_plural = "آیتم‌های سفارش"
+        db_table = "order_passenger"
+        verbose_name = _("جدول مسافران و سفارش ها")
+        verbose_name_plural = _("جدول مسافران و سفارش ها")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["order", "passenger"],
+                condition=models.Q(is_deleted=False)
+                | models.Q(is_deleted__isnull=True),
+                name="uniq_active_order_passenger",
+            )
+        ]
 
 
 class Reservation(TimestampMixin, SoftDeleteMixin):
     class CoupeType(models.TextChoices):
-        FOUR = "four", _("چهار  تخته")
-        SIX = "six", _("شش تخته")
-        FOR_ROW = "for_row", _("چهار ردیفه")
+        FOUR = "four", _("4 تخته 4 ستاره")
+        FOUR_FIVE = "four_five", _("4 تخته 5 ستاره")
+        THREE = "three", _("سه ستاره")
+        FIVE = "five", _("5 ستاره")
+        SALON = "salon", _("سالنی")
 
     class OrderBy(models.TextChoices):
         CLOCK = "clock", _("ساعت حرکت")
@@ -147,15 +167,7 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
         RajaAccount, on_delete=models.CASCADE, verbose_name="اکانت رجا"
     )
     coupe_type = models.CharField(
-        _("نوع کوپه"), max_length=8, blank=True, null=True, choices=CoupeType.choices
-    )
-    order_by = models.CharField(
-        _("فیلتر بر اساس"),
-        max_length=15,
-        blank=True,
-        null=True,
-        choices=OrderBy.choices,
-        default=OrderBy.CLOCK,
+        _("نوع کوپه"), max_length=9, blank=True, null=True, choices=CoupeType.choices
     )
     is_exclusive = models.BooleanField(_("کوپه دربست"), default=False, db_default=False)
     # زمان حرکت (قطار رفت)
@@ -172,20 +184,6 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
         help_text=_("بازه زمانی حضور قطار در ایستگاه مبدا (پایان)"),
     )
 
-    # زمان ورود به ایستگاه (مقصد)
-    arrival_time_from = models.PositiveSmallIntegerField(
-        _("زمان ورود به ایستگاه (از)"),
-        blank=True,
-        null=True,
-        help_text=_("زمان تقریبی ورود به ایستگاه مقصد (شروع)"),
-    )
-    arrival_time_to = models.PositiveSmallIntegerField(
-        _("زمان ورود به ایستگاه (تا)"),
-        blank=True,
-        null=True,
-        help_text=_("زمان تقریبی ورود به ایستگاه مقصد (پایان)"),
-    )
-
     from_price = models.DecimalField(
         blank=True, null=True, max_digits=10, decimal_places=2
     )
@@ -195,12 +193,10 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
     train_number = models.CharField(
         _("شماره قطار"), blank=True, max_length=10, null=True
     )
-
     adult_number = models.PositiveSmallIntegerField(default=1, db_default=1)
     baby_number = models.PositiveSmallIntegerField(default=0, db_default=0)
-
-    salon = models.CharField(
-        _("سالن"), max_length=50, blank=True, null=True, choices=SalonType.choices
+    phone = models.CharField(
+        _("شماره موبایل رزرو کننده"), max_length=15, blank=True, null=True
     )
 
     class Meta:
@@ -216,15 +212,13 @@ class ReservationAttempt(TimestampMixin, SoftDeleteMixin):
     status = models.CharField(
         max_length=20,
         choices=ReservationStatus.choices,
-        default=ReservationStatus.PENDING,
+        default=ReservationStatus.WAITING_START,
+        db_default=ReservationStatus.WAITING_START,
     )
     payment_url = models.URLField(blank=True, null=True)
     error_message = models.TextField(blank=True, null=True)
     celery_task_id = models.CharField(
         max_length=50, blank=True, null=True, verbose_name="شناسه تسک سلری"
-    )
-    find_train_number = models.CharField(
-        _("شماره قطار پیدا شده"), blank=True, null=True, max_length=10, default=0
     )
     captcha_token = models.CharField(max_length=512, blank=True, null=True)
 

@@ -8,6 +8,7 @@ from apps.ticket.models import (
     ReservationStatus,
     ReservationAttempt,
     Restitution,
+    OrderPassenger,
 )
 from apps.user.models import RajaAccount
 
@@ -19,7 +20,6 @@ async def dashboard_status_selector():
             "id",
             filter=Q(
                 status__in=[
-                    ReservationStatus.SUCCESS,
                     ReservationStatus.REDIRECT_GATEWAY,
                 ]
             ),
@@ -30,7 +30,7 @@ async def dashboard_status_selector():
                 status__in=[
                     ReservationStatus.PENDING,
                     ReservationStatus.MONITORING,
-                    ReservationStatus.BOOKING,
+                    ReservationStatus.WAITING_START,
                 ]
             ),
         ),
@@ -40,21 +40,18 @@ async def dashboard_status_selector():
 
 
 async def five_last_reservations_selector():
-    queryset = Reservation.objects.select_related("order__passenger").order_by("-id")
+    queryset = Reservation.objects.select_related("order").order_by("-id")
 
     results = []
     async for reservation in queryset:
         order = reservation.order
-        passenger = order.passenger
         results.append(
             {
                 "id": reservation.id,
-                "passenger_first_name": passenger.first_name,
-                "passenger_last_name": passenger.last_name,
-                "passenger_phone": passenger.phone,
                 "origin": order.origin,
                 "destination": order.destination,
                 "travel_date": order.travel_date,
+                "phone": reservation.phone,
             }
         )
         if len(results) == 5:
@@ -71,9 +68,7 @@ async def get_paginated_orders_selector(
     page_size: int = 20,
 ):
     # واکشی اولیه با روابط (برای جلوگیری از N+1)
-    queryset = ReservationAttempt.objects.select_related(
-        "reservation__order__passenger"
-    ).all()
+    queryset = ReservationAttempt.objects.select_related("reservation__order").all()
 
     # ۱. فیلتر تب‌ها
     if tab == "active":
@@ -81,19 +76,17 @@ async def get_paginated_orders_selector(
             status__in=[
                 ReservationStatus.PENDING,
                 ReservationStatus.MONITORING,
-                ReservationStatus.BOOKING,
+                ReservationStatus.WAITING_START,
             ]
         )
     elif tab == "success":
-        queryset = queryset.filter(
-            status__in=[ReservationStatus.SUCCESS, ReservationStatus.REDIRECT_GATEWAY]
-        )
+        queryset = queryset.filter(status=ReservationStatus.REDIRECT_GATEWAY)
     elif tab == "failed":
         queryset = queryset.filter(status=ReservationStatus.FAILED)
 
     # ۲. فیلتر جستجو (بر اساس کد سفارش، نام مسافر، مبدا، مقصد)
     if search:
-        queryset = queryset.filter(reservation__order__passenger__phone=search)
+        queryset = queryset.filter(reservation__phone=search)
 
     # ۳. فیلتر تاریخ
     # if date:
@@ -117,9 +110,7 @@ async def get_paginated_orders_selector(
                 "order_id": res.id,
                 "status": res.status,
                 "is_exclusive": res.reservation.is_exclusive,
-                "find_train_number": res.find_train_number,
-                "passenger_name": f"{res.reservation.order.passenger.first_name} {res.reservation.order.passenger.last_name}",
-                "passenger_phone": res.reservation.order.passenger.phone,
+                "phone": res.reservation.phone,
                 "origin": res.reservation.order.origin,
                 "destination": res.reservation.order.destination,
                 "travel_date": res.reservation.order.travel_date,
@@ -129,11 +120,8 @@ async def get_paginated_orders_selector(
                 "to_price": res.reservation.to_price,
                 "from_price": res.reservation.from_price,
                 "train_number": res.reservation.train_number,
-                "salon": res.reservation.salon,
                 "departure_time_from": res.reservation.departure_time_from,
                 "departure_time_to": res.reservation.departure_time_to,
-                "arrival_time_from": res.reservation.arrival_time_from,
-                "arrival_time_to": res.reservation.arrival_time_to,
                 "adult_number": res.reservation.adult_number,
                 "baby_number": res.reservation.baby_number,
             }
@@ -147,28 +135,92 @@ async def get_paginated_orders_selector(
     }
 
 
+async def get_orders_detail_selector(order_id: int):
+    # واکشی مسافران مربوط به سفارش
+    passengers_prefetch = Prefetch(
+        "reservation__order__order_passenger",
+        queryset=OrderPassenger.objects.select_related("passenger"),
+        to_attr="active_passengers",
+    )
+
+    # دریافت آخرین تلاش برای این سفارش (یا هر منطقی که مد نظر دارید)
+    # از .filter().order_by().afirst() استفاده می‌کنیم تا یک آبجکت واحد بگیریم
+    res = (
+        await ReservationAttempt.objects.select_related("reservation__order")
+        .prefetch_related(passengers_prefetch)
+        .filter(reservation_id=order_id)
+        .order_by("-id")
+        .afirst()
+    )
+
+    if not res:
+        return None
+
+    order = res.reservation.order
+
+    # استخراج لیست مسافران
+    passengers_list = []
+    if hasattr(order, "active_passengers"):
+        for op in order.active_passengers:
+            p = op.passenger
+            passengers_list.append(
+                {
+                    "id": p.id,
+                    "first_name": p.first_name,
+                    "last_name": p.last_name,
+                    "national_id": p.national_id,
+                    "birth_date": p.birth_date,
+                    "is_adult": p.is_adult,
+                }
+            )
+
+    # خروجی به صورت یک دیکشنری واحد (نه لیست)
+    return {
+        "id": res.reservation_id,
+        "order_id": res.id,
+        "status": res.status,
+        "is_exclusive": res.reservation.is_exclusive,
+        "phone": res.reservation.phone,
+        "origin": order.origin,
+        "destination": order.destination,
+        "travel_date": order.travel_date,
+        "to_date": order.to_date,
+        "passenger_type": order.passenger_type,
+        "trip_type": order.trip_type,
+        "to_price": res.reservation.to_price,
+        "from_price": res.reservation.from_price,
+        "train_number": res.reservation.train_number,
+        "departure_time_from": res.reservation.departure_time_from,
+        "departure_time_to": res.reservation.departure_time_to,
+        "adult_number": res.reservation.adult_number,
+        "baby_number": res.reservation.baby_number,
+        "passengers": passengers_list,
+    }
+
+
 async def get_paginated_passengers_selector(
     search: str = "", page: int = 1, page_size: int = 20
 ):
     # واکشی همه مسافران
     queryset = Passenger.objects.all()
 
-    # ۱. فیلتر جستجو (نام، نام خانوادگی، یا شماره موبایل)
     if search:
         queryset = queryset.filter(
-            Q(first_name=search) | Q(last_name=search) | Q(phone=search)
+            Q(first_name=search) | Q(last_name=search)
         )
 
-    # ۲. انوتیشن (محاسبه تعداد سفارشات و آخرین تاریخ سفر)
-    # برای بهینه بودن، فقط تاریخ سفر را از سفارشات می‌گیریم
+    # از طریق جدول واسط OrderPassenger به Order می‌رسیم
     last_order_subquery = (
-        Order.objects.filter(passenger=OuterRef("pk"))
-        .order_by("-travel_date")
-        .values("travel_date")[:1]
+        OrderPassenger.objects.filter(passenger=OuterRef("pk"))
+        .order_by("-order__travel_date")
+        .values("order__travel_date")[:1]
     )
 
     queryset = queryset.annotate(
-        orders_count=Count("passenger_orders"),
+        # تعداد سفارشات فعال این مسافر
+        orders_count=Count(
+            "passenger_order",
+        ),
         last_order_date=Subquery(last_order_subquery),
     ).order_by("-id")  # مرتب‌سازی بر اساس جدیدترین مسافران
 
@@ -185,9 +237,9 @@ async def get_paginated_passengers_selector(
             {
                 "id": passenger.id,
                 "full_name": f"{passenger.first_name} {passenger.last_name}".strip(),
-                "phone": passenger.phone,
                 "orders_count": passenger.orders_count,
                 "last_order_date": passenger.last_order_date,
+                "is_adult": passenger.is_adult,
             }
         )
 
@@ -270,7 +322,7 @@ async def dashboard_chart_status_selector():
     stats = await ReservationAttempt.objects.aaggregate(
         pending_count=Count("id", filter=Q(status=ReservationStatus.PENDING)),
         monitoring_count=Count("id", filter=Q(status=ReservationStatus.MONITORING)),
-        booking_count=Count("id", filter=Q(status=ReservationStatus.BOOKING)),
+        booking_count=Count("id", filter=Q(status=ReservationStatus.WAITING_START)),
         redirect_gateway_count=Count(
             "id", filter=Q(status=ReservationStatus.REDIRECT_GATEWAY)
         ),
@@ -282,7 +334,7 @@ async def dashboard_chart_status_selector():
                 status__in=[
                     ReservationStatus.PENDING,
                     ReservationStatus.MONITORING,
-                    ReservationStatus.BOOKING,
+                    ReservationStatus.WAITING_START,
                     ReservationStatus.REDIRECT_GATEWAY,
                 ]
             ),

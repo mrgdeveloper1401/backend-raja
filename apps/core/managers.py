@@ -5,11 +5,7 @@ from django.db.models.query import QuerySet
 
 class SoftDeleteQuerySet(QuerySet):
     def alive(self):
-        return self.filter(
-            Q(deleted_at__isnull=True)
-            | Q(is_deleted=False)
-            | Q(deleted_at__isnull=True)
-        )
+        return self.filter(Q(is_deleted=False) | Q(deleted_at__isnull=True))
 
 
 class SoftDeleteManager(Manager):

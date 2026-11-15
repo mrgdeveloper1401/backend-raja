@@ -40,20 +40,16 @@ class DashboardStatusSchema(Serializer):
 
 class ReservationListSchema(Serializer):
     id: int
-    passenger_first_name: str
-    passenger_last_name: str
-    passenger_phone: str
     origin: str
     destination: str
     travel_date: date
+    phone: str | None
 
 
 class OrderListSchema(Serializer):
     id: int
     order_id: int
-    passenger_name: str
-    passenger_phone: str
-    find_train_number: Union[str, int]
+    phone: str | None
     origin: str
     destination: str
     travel_date: date
@@ -66,13 +62,10 @@ class OrderListSchema(Serializer):
     baby_number: int
     departure_time_from: int | None = None
     departure_time_to: int | None = None
-    arrival_time_from: int | None = None
-    arrival_time_to: int | None = None
     to_date: str | None = None
     from_price: Decimal | None = None
     to_price: Decimal | None = None
     train_number: str | None = None
-    salon: str | None = None
 
 
 class PaginatedOrdersSchema(Serializer):
@@ -85,8 +78,8 @@ class PaginatedOrdersSchema(Serializer):
 class PassengerListSchema(Serializer):
     id: int
     full_name: str
-    phone: str
     orders_count: int
+    is_adult: bool
     last_order_date: Optional[date] = None
 
 
@@ -101,9 +94,7 @@ class PassengerCreateSchema(Serializer):
     first_name: str
     last_name: str
     national_id: str
-    gender: str
     birth_date: Optional[date]
-    phone: str
 
 
 class PassengerDetailSchema(Serializer):
@@ -111,18 +102,38 @@ class PassengerDetailSchema(Serializer):
     first_name: str
     last_name: str
     national_id: str
-    gender: str
     birth_date: Optional[date]
-    phone: str
+    is_adult: bool
+
+
+class OrderDetailSchema(Serializer):
+    id: int
+    order_id: int
+    status: str
+    is_exclusive: bool
+    phone: Optional[str]
+    origin: str
+    destination: str
+    travel_date: date
+    to_date: Optional[date]
+    passenger_type: str  # یا Literal
+    trip_type: str  # یا Literal
+    to_price: Optional[Decimal]
+    from_price: Optional[Decimal]
+    train_number: Optional[str]
+    departure_time_from: Optional[int]
+    departure_time_to: Optional[int]
+    adult_number: int
+    baby_number: int
+    passengers: list[PassengerDetailSchema]
 
 
 class PassengerUpdateSchema(Serializer):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     national_id: Optional[str] = None
-    gender: Optional[str] = None
+
     birth_date: Optional[date] = None
-    phone: Optional[str] = None
 
 
 class PassengerOrderSchema(Serializer):
@@ -138,9 +149,7 @@ class PassengerNewDetailSchema(Serializer):
     first_name: str
     last_name: str
     national_id: str
-    gender: str
     birth_date: Optional[date]
-    phone: str
     orders: List[PassengerOrderSchema] = []
 
 
@@ -152,7 +161,6 @@ class OrderCreateSchema(Serializer):
     first_name: str
     last_name: str
     national_id: str
-    gender: Literal["male", "female"]
     phone: str
     birth_date: str
     is_exclusive: bool
@@ -161,25 +169,17 @@ class OrderCreateSchema(Serializer):
     travel_date: str
     passenger_type: Literal["normal", "woman", "man"]
     trip_type: Literal["outbound", "outbound_and_return"]
-    coupe_type: Optional[Literal["four", "six", "for_row"]] = None
-    order_by: Literal["clock", "cheap", "expensive", "owner"]
-
-    # در اینجا حتماً باید int باشد، نه str
     raja_account_id: int
-
     to_date: Optional[str] = None
-
-    # --- فیلدهای زمانی (باید int باشند) ---
     departure_time_from: Optional[int] = None
     departure_time_to: Optional[int] = None
     arrival_time_from: Optional[int] = None
     arrival_time_to: Optional[int] = None
-
-    # اگر این فیلدها را هم در فرانت‌اند می‌فرستید، باید اینجا تعریف شوند:
     from_price: Optional[float] = None
     to_price: Optional[float] = None
     train_number: Optional[str] = None
     salon: Optional[str] = None
+    coupe_type: Optional[Literal["four", "six", "for_row"]] = None
 
 
 class RajaAccountOptionSchema(Serializer):

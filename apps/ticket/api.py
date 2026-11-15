@@ -18,6 +18,7 @@ from apps.ticket.schema import (
     RestitutionResponseSchema,
     RestitutionSchema,
     RestitutionPagination,
+    OrderDetailSchema,
 )
 from apps.ticket.selector import (
     dashboard_status_selector,
@@ -29,6 +30,7 @@ from apps.ticket.selector import (
     get_passenger_detail_selector,
     dashboard_chart_status_selector,
     restitution_list_selector,
+    get_orders_detail_selector,
 )
 from apps.ticket.services import (
     create_passenger_selector,
@@ -182,6 +184,18 @@ async def list_orders(
     res = await get_paginated_orders_selector(
         tab=tab, search=search, date=date, page=page, page_size=20
     )
+    return res
+
+
+@api.get(
+    "/order/{order_id}",
+    status_code=200,
+    response_model=OrderDetailSchema,
+    auth=[JWTAuthentication()],
+    guards=[IsAuthenticated()],
+)
+async def detail_order(order_id: int):
+    res = await get_orders_detail_selector(order_id=order_id)
     return res
 
 
