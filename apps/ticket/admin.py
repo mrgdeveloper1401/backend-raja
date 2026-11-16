@@ -28,7 +28,7 @@ class PassengerAdmin(admin.ModelAdmin):
         "show_jdatetime",
         "is_adult",
         "created_at",
-        "updated_at"
+        "updated_at",
     )
     list_display_links = list_display
 
@@ -49,7 +49,7 @@ class OrderAdmin(admin.ModelAdmin):
         "destination",
         "travel_date",
         "created_at",
-        "updated_at"
+        "updated_at",
     )
     list_display_links = list_display
     ordering = ("-id",)
@@ -59,7 +59,14 @@ class OrderAdmin(admin.ModelAdmin):
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
     list_per_page = 30
-    list_display = ("id", "order_id", "raja_account_id", "is_exclusive", "created_at", "updated_at")
+    list_display = (
+        "id",
+        "order_id",
+        "raja_account_id",
+        "is_exclusive",
+        "created_at",
+        "updated_at",
+    )
     raw_id_fields = ("order", "raja_account")
     list_display_links = list_display
     list_filter = ("is_exclusive", "created_at")
@@ -67,7 +74,7 @@ class ReservationAdmin(admin.ModelAdmin):
 
 @admin.register(ReservationAttempt)
 class ReservationAttemptAdmin(admin.ModelAdmin):
-    list_display = ("reservation_id", "id","status", "created_at", "updated_at")
+    list_display = ("reservation_id", "id", "status", "created_at", "updated_at")
     list_display_links = list_display
     list_per_page = 20
     list_filter = ("created_at",)

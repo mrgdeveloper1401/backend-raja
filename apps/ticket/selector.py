@@ -1,4 +1,3 @@
-from asgiref.sync import sync_to_async
 from django.db.models import Count, Q, OuterRef, Subquery, Prefetch
 
 from apps.ticket.models import (
@@ -62,7 +61,6 @@ async def five_last_reservations_selector():
 async def get_paginated_orders_selector(
     tab: str = "active",
     search: str = "",
-    date: str = None,
     page: int = 1,
     page_size: int = 20,
 ):
@@ -86,10 +84,6 @@ async def get_paginated_orders_selector(
     # ۲. فیلتر جستجو (بر اساس کد سفارش، نام مسافر، مبدا، مقصد)
     if search:
         queryset = queryset.filter(reservation__phone=search)
-
-    # ۳. فیلتر تاریخ
-    # if date:
-    #     queryset = queryset.filter(reservation__order__travel_date=date)
 
     # ۴. مرتب‌سازی
     queryset = queryset.order_by("-id")
@@ -123,6 +117,7 @@ async def get_paginated_orders_selector(
                 "departure_time_to": res.reservation.departure_time_to,
                 "adult_number": res.reservation.adult_number,
                 "baby_number": res.reservation.baby_number,
+                "coupe_type": res.reservation.coupe_type,
             }
         )
 
@@ -194,6 +189,7 @@ async def get_orders_detail_selector(order_id: int):
         "adult_number": res.reservation.adult_number,
         "baby_number": res.reservation.baby_number,
         "passengers": passengers_list,
+        "coupe_type": res.reservation.coupe_type,
     }
 
 

@@ -75,6 +75,8 @@ def run_attempt_task(attempt_id):
         from_price=reservation.from_price,
         to_price=reservation.to_price,
         train_number=reservation.train_number,
+        adult=reservation.adult_number,
+        child=reservation.baby_number
     )
 
     return asyncio.run(booker.start())

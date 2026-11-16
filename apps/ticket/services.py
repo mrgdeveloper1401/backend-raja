@@ -9,7 +9,8 @@ from apps.ticket.models import (
     Reservation,
     Order,
     ReservationAttempt,
-    OrderPassenger, ReservationStatus,
+    OrderPassenger,
+    ReservationStatus,
 )
 
 
@@ -74,11 +75,6 @@ async def create_order_with_reservation_selector(data: dict):
             return order, reservation
 
     return await _create()
-
-
-async def create_restitution(data: dict) -> Reservation:
-    restitution = await Restitution.objects.acreate(**data)
-    return restitution
 
 
 async def delete_order_services(order_id: int):

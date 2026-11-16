@@ -239,9 +239,6 @@ class RajaBooker:
 
     async def _monitor_and_book(self):
         await self._update_status(ReservationStatus.MONITORING)
-        print(
-            f"در حال رصد قطار... (شماره قطار مورد نظر: {self.train_number or 'همه قطارها'})"
-        )
 
         poll_interval = 0.2
         reload_interval = 1.0
@@ -253,7 +250,7 @@ class RajaBooker:
             "four_five": "4 ستاره 5 تخته",
             "five": "5 ستاره",
             "three": "3 ستاره 6 تخته",
-            "salon": 'سالنی'
+            "salon": "سالنی",
         }
         target_salon_text = (
             salon_map.get(self.coupe_filter, "") if self.coupe_filter else ""
@@ -566,9 +563,9 @@ class RajaBooker:
         await self.page.locator("#dropdownTikcetType").click()
         await self._human_delay()
         type_map = {
-            "normal": "مسافرین عادی",
-            "man": "ویژه برادران",
-            "woman": "ویژه خواهران",
+            "family": "مسافرین عادی",
+            "male": "ویژه برادران",
+            "famale": "ویژه خواهران",
         }
         target_text = type_map.get(self.passenger_type, "مسافرین عادی")
         option_locator = self.page.locator(

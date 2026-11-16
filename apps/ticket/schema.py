@@ -13,9 +13,9 @@ class TripTypeEnum(Enum):
 
 
 class PassengerTypeEnum(Enum):
-    MAN = "man"
-    WOMAN = "woman"
-    NORMAL = "normal"
+    MAN = "male"
+    WOMAN = "famale"
+    NORMAL = "family"
 
 
 class DashboardStatusSchema(Serializer):
@@ -53,7 +53,7 @@ class OrderListSchema(Serializer):
     from_price: Decimal | None = None
     to_price: Decimal | None = None
     train_number: str | None = None
-
+    coupe_type: Optional[str] = None
 
 class PaginatedOrdersSchema(Serializer):
     items: list[OrderListSchema]
@@ -112,6 +112,7 @@ class OrderDetailSchema(Serializer):
     departure_time_to: Optional[int]
     adult_number: int
     baby_number: int
+    coupe_type: Optional[str] = None
     passengers: list[PassengerDetailSchema]
 
 
@@ -152,7 +153,7 @@ class OrderCreateSchema(Serializer):
     destination: str
     trip_type: Literal["outbound", "outbound_and_return"]
     travel_date: str
-    passenger_type: Literal["normal", "woman", "man"]
+    passenger_type: Literal["family", "famale", "male"]
     passengers: List[OrderCreatePassengerSchema]
     raja_account_id: int | str
     is_exclusive: bool
@@ -165,9 +166,7 @@ class OrderCreateSchema(Serializer):
     from_price: Decimal | None = None
     to_price: Decimal | None = None
     train_number: str | None = None
-    coupe_type: Optional[
-        Literal["all", "four_four", "four_five", "three", "five", "salon"]
-    ] = None
+    coupe_type: Optional[str] = None
 
 
 class RajaAccountOptionSchema(Serializer):

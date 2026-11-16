@@ -30,13 +30,11 @@ from apps.ticket.selector import (
     delete_passenger_selector,
     get_passenger_detail_selector,
     dashboard_chart_status_selector,
-    restitution_list_selector,
     get_orders_detail_selector,
 )
 from apps.ticket.services import (
     create_passenger_selector,
     create_order_with_reservation_selector,
-    create_restitution,
     delete_order_services,
     update_order_and_restart_selector,
 )
@@ -180,11 +178,10 @@ async def create_order(payload: OrderCreateSchema):
 async def list_orders(
     tab: str = "active",
     search: str = "",
-    date: str | None = None,
     page: int = 1,
 ):
     res = await get_paginated_orders_selector(
-        tab=tab, search=search, date=date, page=page, page_size=20
+        tab=tab, search=search, page=page, page_size=20
     )
     return res
 
@@ -233,19 +230,6 @@ async def dashboard_chart_status():
 )
 async def restitution(data: RestitutionSchema):
     res = await create_restitution(data.to_dict())
-    return res
-
-
-@api.get(
-    "/restitution",
-    response_model=List[RestitutionResponseSchema],
-    auth=[JWTAuthentication()],
-    guards=[IsAuthenticated()],
-    status_code=200,
-)
-@paginate(RestitutionPagination)
-async def restitution_list(request) -> List[RestitutionResponseSchema]:
-    res = await restitution_list_selector()
     return res
 
 

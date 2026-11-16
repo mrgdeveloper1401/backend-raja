@@ -23,13 +23,6 @@ class RestitutionEnum(models.TextChoices):
     PENDING = "pending", _("انتظار")
 
 
-class SalonType(models.TextChoices):
-    FOUR_STAR_FOUR_COUPE = "4_star_4_coupe", _("4 ستاره 4 تخته")
-    FOUR_STAR_FIVE_COUPE = "4_star_5_coupe", _("4 ستاره 5 تخته")  # طبق درخواست شما
-    FIVE_STAR = "5_star", _("5 ستاره")
-    THREE_STAR_SIX_COUPE = "3_star_6_coupe", _("3 ستاره 6 تخته")
-
-
 class Passenger(TimestampMixin, SoftDeleteMixin):
     class Gender(models.TextChoices):
         MALE = "male", "مرد"
@@ -71,9 +64,9 @@ class Passenger(TimestampMixin, SoftDeleteMixin):
 
 class Order(TimestampMixin, SoftDeleteMixin):
     class PassengerType(models.TextChoices):
-        MAN = "man", _("ویژه برادران")
-        WOMAN = "woman", _("ویژه خواهران")
-        NORMAL = "normal", _("مسافرین عادی")
+        MAN = "male", _("ویژه برادران")
+        WOMAN = "famale", _("ویژه خواهران")
+        NORMAL = "family", _("مسافرین عادی")
 
     class TripType(models.TextChoices):
         OUT_BOUND = "outbound", _("تک سفر")
@@ -94,7 +87,7 @@ class Order(TimestampMixin, SoftDeleteMixin):
     )
     to_date = models.DateField(_("تاریخ برگشت"), blank=True, null=True)
     passenger_type = models.CharField(
-        max_length=20,
+        max_length=7,
         choices=PassengerType.choices,
         default=PassengerType.NORMAL,
         verbose_name="نوع بلیط",
@@ -148,7 +141,7 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
         ALL = "all", _("هر نوع کوه ای")
         FOUR = "four", _("4 تخته 4 ستاره")
         FOUR_FIVE = "four_five", _("4 تخته 5 ستاره")
-        THREE = "three", _("سه ستاره")
+        THREE = "three", _("سه ستاره 6 تخته")
         FIVE = "five", _("5 ستاره")
         SALON = "salon", _("سالنی")
 
