@@ -7,7 +7,6 @@ from apps.ticket.models import (
     Order,
     ReservationStatus,
     ReservationAttempt,
-    Restitution,
     OrderPassenger,
 )
 from apps.user.models import RajaAccount
@@ -339,8 +338,3 @@ async def dashboard_chart_status_selector():
         ),
     )
     return stats
-
-
-async def restitution_list_selector():
-    # return [item async for item in Restitution.objects.order_by('id')]
-    return Restitution.objects.order_by("-id")

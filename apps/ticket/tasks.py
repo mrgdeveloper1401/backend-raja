@@ -5,8 +5,7 @@ import jdatetime
 from celery import shared_task
 
 from .booker import RajaBooker
-from .models import Reservation, ReservationAttempt, Restitution
-from .restitution import RestitutionTicket
+from .models import Reservation, ReservationAttempt
 
 
 @shared_task(queue="booker", time_limit=3600)
@@ -94,21 +93,3 @@ def process_reservation_task(reservation_id):
     attempt.save(update_fields=["celery_task_id", "updated_at"])
 
     return f"attempts started {reservation_id}"
-
-
-@shared_task(queue="restitution")
-def run_restitution_task(restitution_id):
-    try:
-        obj = Restitution.objects.get(id=restitution_id)
-    except Reservation.DoesNotExist:
-        return "استرداد پیدا نشد"
-
-    restitution_ticket = RestitutionTicket(
-        serial=obj.serial_number,
-        phone=obj.phone,
-        hall_number=obj.hall_number,
-        account_id=obj.raja_account_id,
-        restitution_id=obj.id,
-        train_number=obj.train_number,
-    )
-    return asyncio.run(restitution_ticket.start())

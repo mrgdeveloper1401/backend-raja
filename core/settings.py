@@ -255,7 +255,6 @@ CELERY_TASK_QUEUES = (
     Queue("booker"),
     Queue("celery"),
     Queue("qu"),
-    Queue("restitution"),
 )
 
 if not IS_WINDOWS:

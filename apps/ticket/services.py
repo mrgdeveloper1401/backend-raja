@@ -8,7 +8,6 @@ from apps.ticket.models import (
     Passenger,
     Reservation,
     Order,
-    Restitution,
     ReservationAttempt,
     OrderPassenger, ReservationStatus,
 )

@@ -227,38 +227,3 @@ class ReservationAttempt(TimestampMixin, SoftDeleteMixin):
         db_table = "reservation_attempts"
         verbose_name = _("درخواست های رزور")
         verbose_name_plural = _("درخواست های رزرو")
-
-
-class Restitution(TimestampMixin, SoftDeleteMixin):
-    serial_number = models.CharField(_("سریال بلیط"), max_length=255)
-    phone = models.CharField(_("شماره موبایل"), max_length=15)
-    train_number = models.CharField(_("شماره قطار"), max_length=10)
-    hall_number = models.CharField(_("شماره سالن"), max_length=50)
-    status = models.CharField(
-        _("وضعیت"),
-        max_length=10,
-        choices=RestitutionEnum.choices,
-        default=RestitutionEnum.PENDING,
-        db_default=RestitutionEnum.PENDING,
-    )
-    error_message = models.TextField(_("خطای اختمالی"), blank=True, null=True)
-    raja_account = models.ForeignKey(
-        # TODO, when clean migration remove this blank and null
-        RajaAccount,
-        on_delete=models.CASCADE,
-        verbose_name="اکانت رجا",
-        blank=True,
-        null=True,
-    )
-    task_id = models.CharField(
-        _("ایدی تسک سلری"), max_length=100, blank=True, null=True
-    )
-
-    def clean(self):
-        if not self.raja_account:
-            raise ValidationError(_("تعریف اکانت رجا الزامی هست"))
-
-    class Meta:
-        db_table = "restitutions"
-        verbose_name = _("استراد")
-        verbose_name_plural = _("استرداد بلیط ها")
