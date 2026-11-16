@@ -673,6 +673,7 @@ class RajaBooker:
         await self._human_delay()
         print("در حال پر کردن مشخصات مسافران...")
 
+        # منتظر می‌مانیم تا فرم مسافران لود شود
         await self.page.get_by_text("کد ملی/شماره پاسپورت").first.wait_for(
             state="visible", timeout=15000
         )
@@ -680,6 +681,7 @@ class RajaBooker:
 
         await self._human_delay()
 
+        # پیدا کردن همه بلوک‌های مسافر
         passenger_blocks = self.page.locator(".passanger-registor").filter(
             has=self.page.get_by_text("کد ملی/شماره پاسپورت")
         )
@@ -687,6 +689,7 @@ class RajaBooker:
         count = await passenger_blocks.count()
         print(f"تعداد بلوک‌های مسافر پیدا شده: {count}")
 
+        # حلقه روی مسافران (بر اساس لیست passengers که از دیتابیس آمده)
         for i, passenger in enumerate(self.passengers):
             if i >= count:
                 print(f"هشدار: بلوک برای مسافر {i + 1} پیدا نشد.")
@@ -695,40 +698,56 @@ class RajaBooker:
             block = passenger_blocks.nth(i)
             print(f"--- در حال پردازش مسافر {i + 1} ---")
 
+            # ۱. پر کردن کد ملی
             try:
                 await self._human_delay()
                 national_id = passenger.get("national_id")
                 if national_id:
-                    input_locator = block.get_by_role("textbox").first
+                    # پیدا کردن اینپوت کد ملی در این بلوک
+                    # در HTML شما، اینپوت کد ملی بعد از لیبل "کد ملی/شماره پاسپورت" قرار دارد
+                    input_locator = block.locator("input[type='text']").first
                     await input_locator.fill(str(national_id))
-                    print("کد ملی پر شد.")
+                    print(f"کد ملی مسافر {i + 1} پر شد: {national_id}")
             except Exception as e:
-                print(f"خطا در کد ملی: {e}")
+                print(f"خطا در پر کردن کد ملی مسافر {i + 1}: {e}")
 
+            # ۲. پر کردن تاریخ تولد
             try:
                 await self._human_delay()
                 birth_date = passenger.get("birth_date")
                 if birth_date:
+                    # در HTML شما، اینپوت تاریخ تولد دارای title="روز/ماه/سال" است
                     birth_input = block.locator("input[title='روز/ماه/سال']")
-                    if await birth_input.count() == 0:
-                        birth_input = block.locator("input[tabindex='12']")
                     if await birth_input.count() > 0:
                         await birth_input.fill(str(birth_date))
-                        print("تاریخ تولد پر شد.")
+                        print(f"تاریخ تولد مسافر {i + 1} پر شد: {birth_date}")
+                    else:
+                        # اگر title پیدا نشد، از tabindex استفاده می‌کنیم (به عنوان fallback)
+                        # tabindex برای مسافر اول 12، دوم 22، سوم 32 است
+                        tab_index = 12 + (i * 10)
+                        birth_input = block.locator(f"input[tabindex='{tab_index}']")
+                        if await birth_input.count() > 0:
+                            await birth_input.fill(str(birth_date))
+                            print(f"تاریخ تولد مسافر {i + 1} (با tabindex) پر شد: {birth_date}")
             except Exception as e:
-                print(f"خطا در تاریخ تولد: {e}")
+                print(f"خطا در پر کردن تاریخ تولد مسافر {i + 1}: {e}")
 
+            # ۳. پر کردن نام (اگر فیلد قابل ویرایش وجود داشت)
             try:
                 await self._human_delay()
                 first_name = passenger.get("first_name")
                 if first_name:
+                    # در HTML شما نام به صورت input دیده نمی‌شود،
+                    # اما اگر وجود داشت، سعی می‌کنیم پر کنیم
                     name_input = block.locator("input[name='pName']")
                     if await name_input.count() > 0:
                         await name_input.fill(str(first_name))
-                        print("نام پر شد.")
+                        print(f"نام مسافر {i + 1} پر شد: {first_name}")
             except Exception as e:
-                print(f"خطا در نام: {e}")
+                # اگر فیلد نام وجود نداشت، خطا را نادیده می‌گیریم
+                pass
 
+            # ۴. پر کردن نام خانوادگی (اگر فیلد قابل ویرایش وجود داشت)
             try:
                 await self._human_delay()
                 last_name = passenger.get("last_name")
@@ -736,9 +755,24 @@ class RajaBooker:
                     family_input = block.locator("input[name='pFamily']")
                     if await family_input.count() > 0:
                         await family_input.fill(str(last_name))
-                        print("نام خانوادگی پر شد.")
+                        print(f"نام خانوادگی مسافر {i + 1} پر شد: {last_name}")
             except Exception as e:
-                print(f"خطا در نام خانوادگی: {e}")
+                # اگر فیلد نام خانوادگی وجود نداشت، خطا را نادیده می‌گیریم
+                pass
+
+            # ۵. انتخاب نوع مسافر (بزرگسال / خردسال)
+            # try:
+            #     await self._human_delay()
+            #     is_adult = passenger.get("is_adult", True)
+            #     # پیدا کردن سلکت نوع مسافر در این بلوک
+            #     type_select = block.locator("select").first
+            #     if await type_select.count() > 0:
+            #         # مقدار 1 برای بزرگسال، 2 برای خردسال
+            #         value = "1" if is_adult else "2"
+            #         await type_select.select_option(value=value)
+            #         print(f"نوع مسافر {i + 1} انتخاب شد: {'بزرگسال' if is_adult else 'خردسال'}")
+            # except Exception as e:
+            #     print(f"خطا در انتخاب نوع مسافر {i + 1}: {e}")
 
         print("عملیات پر کردن مشخصات مسافران به پایان رسید.")
 
