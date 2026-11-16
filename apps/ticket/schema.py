@@ -219,6 +219,7 @@ class OrderUpdatePassengerSchema(Serializer):
     national_id: str
     birth_date: str
 
+
 class OrderUpdateSchema(Serializer):
     # فیلدهای سفارش
     origin: Optional[str] = None
@@ -247,4 +248,3 @@ class OrderUpdateSchema(Serializer):
 
     # وضعیت و شروع مجدد
     status: Optional[str] = None
-    restart_robot: Optional[bool] = False

@@ -61,7 +61,7 @@ async def five_last_reservations_selector():
 
 
 async def get_paginated_orders_selector(
-    tab: str = "all",
+    tab: str = "active",
     search: str = "",
     date: str = None,
     page: int = 1,

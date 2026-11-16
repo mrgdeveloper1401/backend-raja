@@ -178,7 +178,7 @@ async def create_order(payload: OrderCreateSchema):
     guards=[IsAuthenticated()],
 )
 async def list_orders(
-    tab: str = "all",
+    tab: str = "active",
     search: str = "",
     date: str | None = None,
     page: int = 1,
@@ -261,7 +261,6 @@ async def update_order(order_id: int, payload: OrderUpdateSchema):
         await update_order_and_restart_selector(order_id, update_data)
         return {
             "message": "سفارش با موفقیت ویرایش شد",
-            "restarted": update_data.get("restart_robot", False),
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

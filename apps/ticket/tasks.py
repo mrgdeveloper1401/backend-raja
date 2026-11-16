@@ -1,6 +1,5 @@
 # apps/ticket/tasks.py
 import asyncio
-import sys
 
 import jdatetime
 from celery import shared_task
@@ -10,29 +9,19 @@ from .models import Reservation, ReservationAttempt, Restitution
 from .restitution import RestitutionTicket
 
 
-def _configure_event_loop_for_platform():
-    """
-    اطمینان از استفاده از Event Loop سازگار با subprocess.
-
-    - در ویندوز: تلاش برای تنظیم ProactorEventLoop (که از subprocess پشتیبانی می‌کند).
-    - در لینوکس: نیازی به تنظیم نیست (SelectorEventLoop پیش‌فرض از subprocess پشتیبانی می‌کند).
-    """
-    if sys.platform == "win32":
-        # در Python 3.14 تنظیم policy منسوخ شده است، اما اگر در دسترس باشد
-        # به‌عنوان یک لایه اطمینان اضافی از آن استفاده می‌کنیم.
-        try:
-            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-        except AttributeError, DeprecationWarning:
-            # در Python 3.14+ این policy ممکن است deprecated یا حذف شده باشد.
-            # در این حالت به رفتار پیش‌فرض ویندوز (که Proactor است) تکیه می‌کنیم.
-            pass
-
-
 @shared_task(queue="booker", time_limit=3600)
 def run_attempt_task(attempt_id):
-    attempt = ReservationAttempt.objects.select_related(
-        "reservation__order__passenger"
-    ).get(id=attempt_id)
+    attempt = (
+        ReservationAttempt.objects.select_related(
+            "reservation",
+            "reservation__order",
+            "reservation__raja_account",
+        )
+        .prefetch_related(
+            "reservation__order__order_passenger__passenger",
+        )
+        .get(id=attempt_id)
+    )
 
     # get reservation
     reservation = attempt.reservation
@@ -41,10 +30,6 @@ def run_attempt_task(attempt_id):
     travel_date_jalali = jdatetime.date.fromgregorian(
         date=reservation.order.travel_date
     ).strftime("%Y-%m-%d")
-
-    birth_date_jalali = jdatetime.date.fromgregorian(
-        date=reservation.order.passenger.birth_date
-    ).strftime("%Y/%m/%d")
 
     to_date = (
         reservation.order.to_date
@@ -56,16 +41,23 @@ def run_attempt_task(attempt_id):
         to_date_jalali = jdatetime.date.fromgregorian(date=to_date).strftime("%Y-%m-%d")
 
     # آماده‌سازی اطلاعات مسافران
-    passengers_data = [
-        {
-            "first_name": reservation.order.passenger.first_name,
-            "last_name": reservation.order.passenger.last_name,
-            "national_id": reservation.order.passenger.national_id,
-            "gender": reservation.order.passenger.gender,
-            "birth_date": birth_date_jalali,
-            "is_adult": True,
-        }
-    ]
+    passengers_data = []
+    for link in reservation.order.order_passenger.all():
+        passenger = link.passenger
+        birth = None
+        if passenger.birth_date:
+            birth = jdatetime.date.fromgregorian(date=passenger.birth_date).strftime(
+                "%Y/%m/%d"
+            )
+        passengers_data.append(
+            {
+                "first_name": passenger.first_name,
+                "last_name": passenger.last_name,
+                "national_id": passenger.national_id,
+                "birth_date": birth,
+                "is_adult": passenger.is_adult,
+            }
+        )
 
     booker = RajaBooker(
         account_id=reservation.raja_account_id,
@@ -75,21 +67,16 @@ def run_attempt_task(attempt_id):
         passengers=passengers_data,
         headless=False,  # در سرور True شود
         attempt_id=attempt.id,
-        travel_phone=reservation.order.passenger.phone,
+        travel_phone=reservation.phone,
         is_want_and_return=reservation.order.trip_type == "outbound_and_return",
         is_exclusive=reservation.is_exclusive,
         to_date=to_date_jalali,
         passenger_type=reservation.order.passenger_type,
         coupe_filter=reservation.coupe_type,
-        order_by_filter=reservation.order_by,
         from_price=reservation.from_price,
         to_price=reservation.to_price,
         train_number=reservation.train_number,
-        salon=reservation.salon,
     )
-
-    # تنظیم Event Loop مناسب قبل از اجرای کد async
-    _configure_event_loop_for_platform()
 
     return asyncio.run(booker.start())
 
@@ -101,9 +88,8 @@ def process_reservation_task(reservation_id):
     except Reservation.DoesNotExist:
         return "رزرو پیدا نشد"
 
-    attempt = ReservationAttempt.objects.create(reservation_id=reservation.id)
+    attempt = ReservationAttempt.objects.filter(reservation_id=reservation.id).last()
     task = run_attempt_task.delay(attempt.id)
-
     attempt.celery_task_id = task.id
     attempt.save(update_fields=["celery_task_id", "updated_at"])
 
@@ -116,10 +102,6 @@ def run_restitution_task(restitution_id):
         obj = Restitution.objects.get(id=restitution_id)
     except Reservation.DoesNotExist:
         return "استرداد پیدا نشد"
-
-    # تنظیم Event Loop مناسب قبل از اجرای کد async
-    # for windows
-    _configure_event_loop_for_platform()
 
     restitution_ticket = RestitutionTicket(
         serial=obj.serial_number,

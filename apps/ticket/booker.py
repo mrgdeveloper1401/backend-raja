@@ -1,6 +1,7 @@
 # apps/ticket/booker.py
 import asyncio
 import re
+from urllib import parse
 
 import traceback
 import random
@@ -10,9 +11,9 @@ from pathlib import Path
 from patchright.async_api import async_playwright
 from pypasser.captcha import arcaptcha
 
+from apps.core.models import Station
 from apps.ticket.models import ReservationAttempt, ReservationStatus
 from apps.user.models import RajaAccount
-from core.settings import IS_WINDOWS
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -47,15 +48,13 @@ class RajaBooker:
         is_want_and_return=False,
         to_date=None,
         coupe_filter=None,
-        order_by_filter=None,
         from_price=None,
         to_price=None,
         train_number=None,
-        salon=None,
         departure_time_from=None,
         departure_time_to=None,
-        arrival_time_from=None,
-        arrival_time_to=None,
+        adult=None,
+        child=None,
     ):
         self.account_id = account_id
         self.origin = origin
@@ -71,22 +70,22 @@ class RajaBooker:
         self.to_date = to_date
         self.passenger_type = passenger_type
         self.coupe_filter = coupe_filter
-        self.order_by_filter = order_by_filter
         self.is_exclusive = is_exclusive
         self.from_price = from_price
         self.to_price = to_price
         self.train_number = train_number
-        self.salon = salon
         self.departure_time_from = departure_time_from
         self.departure_time_to = departure_time_to
-        self.arrival_time_from = arrival_time_from
-        self.arrival_time_to = arrival_time_to
+        self.child = child
+        self.adult = adult
+        self.account = None
 
     async def start(self):
         try:
             self.account = await RajaAccount.objects.aget(id=self.account_id)
 
             data = {
+                "account_id": self.account_id,
                 "origin": self.origin,
                 "destination": self.destination,
                 "travel_date": self.travel_date,
@@ -94,6 +93,18 @@ class RajaBooker:
                 "is_want_and_return": self.is_want_and_return,
                 "travel_phone": self.travel_phone,
                 "passengers": self.passengers,
+                "passenger_type": self.passenger_type,
+                "headless": self.headless,
+                "attempt_id": self.attempt_id,
+                "is_exclusive": self.is_exclusive,
+                "coupe_filter": self.coupe_filter,
+                "from_price": self.from_price,
+                "to_price": self.to_price,
+                "train_number": self.train_number,
+                "departure_time_from": self.departure_time_from,
+                "departure_time_to": self.departure_time_to,
+                "adult": self.adult,
+                "child": self.child,
             }
             print("اطلاعات کاربر", data)
 
@@ -102,7 +113,7 @@ class RajaBooker:
             ]
 
             async with async_playwright() as p:
-                print("در حال راه‌اندازی مرورگر با Patchright...")
+                print("در حال راه اندازی مرورگر")
 
                 self.context = await p.chromium.launch_persistent_context(
                     user_data_dir=str(
@@ -114,11 +125,6 @@ class RajaBooker:
                     slow_mo=100,
                     args=browser_args,
                 )
-                if IS_WINDOWS:
-                    self.context.executable_path = (
-                        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-                    )
-                    self.context.channel = None
 
                 self.page = await self.context.new_page()
                 self.page.set_default_timeout(20000)
@@ -133,16 +139,16 @@ class RajaBooker:
                 # ریلود تا سایت با storage پاک شروع کنه
                 await self.page.goto("https://raja.ir/", wait_until="networkidle")
 
-                # ۱. چک لاگین
-                # is_logged_in = await self._check_login()
-                # if not is_logged_in:
+                # ۱. لاگین
                 print("شروع لاگین...")
                 await self._do_login()
                 print("لاگین انجام شد.")
 
                 # ۲. پر کردن فرم جستجو
-                print("ورود موفق! شروع تنظیم فرم...")
-                await self._fill_search_form()
+                print("fill params ...")
+                await self._fill_params()
+                # print("ورود موفق! شروع تنظیم فرم...")
+                # await self._fill_search_form()
 
                 # فیلتر کردن نتایج
                 await self._filter_search_form()
@@ -171,7 +177,6 @@ class RajaBooker:
         finally:
             if self.context is not None:
                 await self.context.close()
-            print(f"خطا در بستن context: {e}")
 
     async def _update_status(
         self, status, payment_url=None, error_message=None, captcha_token=None
@@ -191,23 +196,6 @@ class RajaBooker:
                 attempt.captcha_token = captcha_token
             await attempt.asave()
 
-            # وضعیت کلی رزرو
-            # reservation = attempt.reservation
-            # if status == ReservationStatus.FAILED:
-            #     # فقط اگر همه attemptها شکست خورده باشند، وضعیت رزرو را FAILED کن
-            #     still_active = (
-            #         await ReservationAttempt.objects.filter(
-            #             reservation_id=reservation.id
-            #         )
-            #         .exclude(status=ReservationStatus.FAILED)
-            #         .aexists()
-            #     )
-            #     if still_active:
-            #         return
-            # reservation.status = status
-            # if payment_url and not attempt.payment_url:
-            #     attempt.payment_url = payment_url  # ✅ اصلاح شد
-            # await reservation.asave()
         except Exception as e:
             print(f"خطا در آپدیت وضعیت: {e}")
 
@@ -249,37 +237,38 @@ class RajaBooker:
             except Exception as e:
                 print(f"خطا در اعمال فیلتر زمان حرکت: {e}")
 
-        arr_range = get_time_range(self.arrival_time_from, self.arrival_time_to)
-        if arr_range:
-            try:
-                btn = self.page.locator(f"div[name='GoArrival'] i.{arr_range}")
-                await btn.click(force=True)
-                await self._human_delay()
-                print(f"فیلتر زمان ورود ({arr_range}) اعمال شد.")
-            except Exception as e:
-                print(f"خطا در اعمال فیلتر زمان ورود: {e}")
-
     async def _monitor_and_book(self):
         await self._update_status(ReservationStatus.MONITORING)
         print(
             f"در حال رصد قطار... (شماره قطار مورد نظر: {self.train_number or 'همه قطارها'})"
         )
 
-        poll_interval = 0.4
+        poll_interval = 0.2
         reload_interval = 1.0
         reload_jitter = 1.0
         last_reload = asyncio.get_event_loop().time()
 
-        # نگاشت مقادیر انتخابی کاربر به متن‌های موجود در سایت رجا
         salon_map = {
-            "4_star_4_coupe": "4 ستاره 4 تخته",
-            "4_star_5_coupe": "4 ستاره 5 تخته",
-            "5_star": "5 ستاره",
-            "3_star_6_coupe": "3 ستاره 6 تخته",
+            "four": "4 ستاره 4 تخته",
+            "four_five": "4 ستاره 5 تخته",
+            "five": "5 ستاره",
+            "three": "3 ستاره 6 تخته",
+            "salon": 'سالنی'
         }
-        target_salon_text = salon_map.get(self.salon, "") if self.salon else ""
+        target_salon_text = (
+            salon_map.get(self.coupe_filter, "") if self.coupe_filter else ""
+        )
 
         while True:
+            # ✅ بررسی بسته شدن مرورگر
+            if not self.context or not self.page or self.page.is_closed():
+                print("⚠️ مرورگر بسته شده است. خروج از حلقه رصد...")
+                await self._update_status(
+                    ReservationStatus.FAILED,
+                    error_message="مرورگر به صورت دستی بسته شد.",
+                )
+                return
+
             try:
                 # پیدا کردن همه کارت‌های قطار در صفحه
                 train_cards = self.page.locator(".train-result")
@@ -288,8 +277,8 @@ class RajaBooker:
                 if count > 0:
                     for i in range(count):
                         card = train_cards.nth(i)
-                        salon_text = "همه سالن‌ها"
-                        # ۱. استخراج شماره قطار از داخل کارت
+
+                        # ۱. استخراج شماره قطار
                         train_num_element = card.locator(".train-number")
                         if await train_num_element.count() == 0:
                             continue
@@ -298,23 +287,21 @@ class RajaBooker:
                         match = re.search(r"\d+", text_content)
                         current_train_num = match.group() if match else None
 
-                        # ۲. بررسی تطابق با شماره قطار مورد نظر
-                        # اگر کاربر شماره قطار وارد کرده باشد و با شماره فعلی فرق داشته باشد، این کارت را رد می‌کنیم
+                        # ۲. بررسی تطابق با شماره قطار
                         if self.train_number and str(current_train_num) != str(
                             self.train_number
                         ):
                             continue
 
-                        # ۲. استخراج نام سالن (جدید)
+                        # ۳. استخراج نوع کوپه
                         if target_salon_text:
                             salon_element = card.locator(".train-name")
                             if await salon_element.count() > 0:
                                 salon_text = await salon_element.inner_text()
-                                # بررسی اینکه آیا متن سالن مورد نظر در متن سایت وجود دارد یا خیر
                                 if target_salon_text not in salon_text:
                                     continue
 
-                        # ۳. بررسی وجود دکمه رزرو در این کارت
+                        # ۴. بررسی وجود دکمه رزرو
                         book_btn = card.locator(
                             "button.lock-btn:has-text('رزرو بلیت')"
                         ).first
@@ -329,22 +316,14 @@ class RajaBooker:
                                 f"✅ ظرفیت برای قطار {current_train_num} پیدا شد! کلیک روی رزرو بلیت..."
                             )
 
-                            # ذخیره شماره قطار در دیتابیس
-                            if self.attempt_id:
-                                await ReservationAttempt.objects.filter(
-                                    id=self.attempt_id
-                                ).aupdate(find_train_number=current_train_num)
-
                             await book_btn.click()
 
-                            # رفتن به مرحله بعد
                             await self.page.locator(
                                 "button:has-text('ادامه خرید')"
                             ).click()
                             await self._human_delay()
-                            return  # خروج از متد چون رزرو انجام شد
+                            return
                         else:
-                            # اگر شماره قطار مورد نظر بود ولی ظرفیت نداشت، لاگ می‌کنیم
                             if self.train_number and str(current_train_num) == str(
                                 self.train_number
                             ):
@@ -352,7 +331,7 @@ class RajaBooker:
                                     f"⏳ قطار {current_train_num} پیدا شد اما ظرفیت ندارد. در حال انتظار..."
                                 )
 
-                # ⏰ اگر خیلی گذشته، صفحه را رفرش کن
+                # ⏰ رفرش صفحه
                 now = asyncio.get_event_loop().time()
                 if now - last_reload >= reload_interval + random.uniform(
                     -reload_jitter, reload_jitter
@@ -377,6 +356,18 @@ class RajaBooker:
                 await asyncio.sleep(poll_interval)
 
             except Exception as e:
+                # ✅ اگر خطای مربوط به بسته شدن مرورگر بود، از حلقه خارج شو
+                error_msg = str(e)
+                if (
+                    "Target page, context or browser has been closed" in error_msg
+                    or "has been closed" in error_msg
+                ):
+                    print("⚠️ خطای بسته شدن مرورگر در حلقه رصد. خروج...")
+                    await self._update_status(
+                        ReservationStatus.FAILED, error_message="مرورگر بسته شد."
+                    )
+                    return
+
                 print(f"خطا در حلقه رصد: {e}")
                 await asyncio.sleep(poll_interval)
 
@@ -600,6 +591,59 @@ class RajaBooker:
         await self.page.locator("#btnsearchticket").click()
         await self._human_delay()
 
+    async def _fill_params(self):
+        print("در حال ساخت URL و انتقال مستقیم به صفحه نتایج...")
+        godate = self.travel_date.replace("-", "")
+        returndate = self.to_date.replace("-", "") if self.to_date else ""
+
+        ticket_type_map = {
+            "normal": "Family",
+            "man": "Male",
+            "woman": "Famale",
+        }
+        tickettype = ticket_type_map.get(self.passenger_type, "Family")
+
+        movetype = 2 if self.is_want_and_return else 1
+
+        adult = self.adult if self.adult is not None else 1
+        child = self.child if self.child is not None else 0
+        infant = 0
+        numberpassenger = adult + child + infant
+
+        ischarter = "true" if self.is_exclusive else "false"
+
+        origin = self.origin
+        destination = self.destination
+        get_origin = await Station.objects.filter(name=origin).afirst()
+        get_destination = await Station.objects.filter(name=destination).afirst()
+        or_code = get_origin.code
+        des_code = get_destination.code
+
+        desctravel_text = f"قطار {self.origin} به {self.destination}"
+        desctravel = parse.quote(desctravel_text)
+
+        url = (
+            f"https://www.raja.ir/search?"
+            f"adult={adult}&"
+            f"child={child}&"
+            f"infant={infant}&"
+            f"movetype={movetype}&"
+            f"ischarter={ischarter}&"
+            f"fs={or_code}&"
+            f"ts={des_code}&"
+            f"godate={godate}&"
+            f"tickettype={tickettype}&"
+            f"returndate={returndate}&"
+            f"numberpassenger={numberpassenger}&"
+            f"mode=Train&"
+            f"desctravel={desctravel}"
+        )
+        print("url", url)
+        await self.page.goto(url, wait_until="networkidle")
+        await self._human_delay()
+
+        await self._filter_search_form()
+
     async def _filter_search_form(self):
         # ۱. فیلتر نوع کوپه (سالن)
         if self.coupe_filter:
@@ -621,29 +665,6 @@ class RajaBooker:
                 await label.click()
                 await self._human_delay()
                 print("فیلتر نوع کوپه اعمال شد.")
-
-        # ۲. فیلتر مرتب‌سازی (Sort)
-        if self.order_by_filter:
-            print(f"در حال اعمال فیلتر مرتب‌سازی: {self.order_by_filter}")
-
-            # نگاشت مقادیر مدل به متن دکمه‌های روی صفحه
-            order_by_map = {
-                "clock": "ساعت حرکت",
-                "cheap": "ارزانترین",
-                "expensive": "گرانترین",
-                "owner": "مالک",
-            }
-
-            target_text = order_by_map.get(self.order_by_filter)
-            if target_text:
-                # پیدا کردن دکمه داخل کلاس sort که متن مورد نظر را دارد
-                # از locator(".sort button", has_text=...) استفاده می‌کنیم تا دقیقاً دکمه‌های مرتب‌سازی را هدف بگیریم
-                sort_button = self.page.locator(".sort button", has_text=target_text)
-
-                # کلیک روی دکمه
-                await sort_button.click()
-                await self._human_delay()
-                print(f"مرتب‌سازی بر اساس {target_text} اعمال شد.")
 
         # فیلتر قسمت
         await self._filter_by_price()

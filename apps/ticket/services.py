@@ -10,8 +10,7 @@ from apps.ticket.models import (
     Order,
     Restitution,
     ReservationAttempt,
-    ReservationStatus,
-    OrderPassenger,
+    OrderPassenger, ReservationStatus,
 )
 
 
@@ -97,28 +96,34 @@ async def update_order_and_restart_selector(order_id: int, data: dict):
         with transaction.atomic():
             attempt = (
                 ReservationAttempt.objects.filter(reservation_id=order_id)
-                .order_by("-id")
-                .first()
+                .select_related("reservation__order")
+                .last()
             )
             if not attempt:
-                raise ValueError("سفارش یافت نشد")
+                raise HTTPException(status_code=404, detail="reservation not found")
 
             reservation = attempt.reservation
             order = reservation.order
 
             # --- آپدیت فیلدهای سفارش ---
-            if "origin" in data: order.origin = data["origin"]
-            if "destination" in data: order.destination = data["destination"]
-            if "travel_date" in data: order.travel_date = data["travel_date"]
-            if "to_date" in data: order.to_date = data["to_date"]
-            if "passenger_type" in data: order.passenger_type = data["passenger_type"]
-            if "trip_type" in data: order.trip_type = data["trip_type"]
+            if "origin" in data:
+                order.origin = data["origin"]
+            if "destination" in data:
+                order.destination = data["destination"]
+            if "travel_date" in data:
+                order.travel_date = data["travel_date"]
+            if "to_date" in data:
+                order.to_date = data["to_date"]
+            if "passenger_type" in data:
+                order.passenger_type = data["passenger_type"]
+            if "trip_type" in data:
+                order.trip_type = data["trip_type"]
             order.save()
 
             # --- آپدیت مسافران (اگر ارسال شده بودند) ---
             if "passengers" in data and data["passengers"] is not None:
                 # ۱. حذف نرم ارتباط‌های قبلی
-                OrderPassenger.objects.filter(order=order).update(is_deleted=True)
+                OrderPassenger.objects.filter(order_id=order.id).delete()
 
                 # ۲. ایجاد/اتصال مسافران جدید
                 for p_data in data["passengers"]:
@@ -133,7 +138,9 @@ async def update_order_and_restart_selector(order_id: int, data: dict):
                     else:
                         p_dict = p_data
 
-                    passenger = Passenger.objects.filter(national_id=p_dict["national_id"]).first()
+                    passenger = Passenger.objects.filter(
+                        national_id=p_dict["national_id"]
+                    ).first()
                     if not passenger:
                         passenger = Passenger.objects.create(
                             national_id=p_dict["national_id"],
@@ -145,33 +152,38 @@ async def update_order_and_restart_selector(order_id: int, data: dict):
                     OrderPassenger.objects.create(order=order, passenger=passenger)
 
             # --- آپدیت فیلدهای رزرو ---
-            if "raja_account_id" in data: reservation.raja_account_id = data["raja_account_id"]
-            if "coupe_type" in data: reservation.coupe_type = data["coupe_type"]
-            if "is_exclusive" in data: reservation.is_exclusive = data["is_exclusive"]
-            if "departure_time_from" in data: reservation.departure_time_from = data["departure_time_from"]
-            if "departure_time_to" in data: reservation.departure_time_to = data["departure_time_to"]
-            if "from_price" in data: reservation.from_price = data["from_price"]
-            if "to_price" in data: reservation.to_price = data["to_price"]
-            if "train_number" in data: reservation.train_number = data["train_number"]
-            if "salon" in data: reservation.salon = data["salon"]
-            if "phone" in data: reservation.phone = data["phone"]
-            if "adult_number" in data: reservation.adult_number = data["adult_number"]
-            if "baby_number" in data: reservation.baby_number = data["baby_number"]
+            if "raja_account_id" in data:
+                reservation.raja_account_id = data["raja_account_id"]
+            if "coupe_type" in data:
+                reservation.coupe_type = data["coupe_type"]
+            if "is_exclusive" in data:
+                reservation.is_exclusive = data["is_exclusive"]
+            if "departure_time_from" in data:
+                reservation.departure_time_from = data["departure_time_from"]
+            if "departure_time_to" in data:
+                reservation.departure_time_to = data["departure_time_to"]
+            if "from_price" in data:
+                reservation.from_price = data["from_price"]
+            if "to_price" in data:
+                reservation.to_price = data["to_price"]
+            if "train_number" in data:
+                reservation.train_number = data["train_number"]
+            if "salon" in data:
+                reservation.salon = data["salon"]
+            if "phone" in data:
+                reservation.phone = data["phone"]
+            if "adult_number" in data:
+                reservation.adult_number = data["adult_number"]
+            if "baby_number" in data:
+                reservation.baby_number = data["baby_number"]
             reservation.save()
 
             # --- تغییر وضعیت ---
             if data.get("status"):
-                attempt.status = data["status"]
+                attempt.status = ReservationStatus.PENDING
+                attempt.celery_task_id = None
                 attempt.save()
-
-            # --- شروع مجدد ربات ---
-            if data.get("restart_robot"):
-                attempt.status = ReservationStatus.FAILED
-                attempt.save()
-                new_attempt = ReservationAttempt.objects.create(
-                    reservation=reservation, status=ReservationStatus.WAITING_START
-                )
-                return new_attempt
+                return attempt
 
             return attempt
 

@@ -1,10 +1,7 @@
-from asgiref.sync import sync_to_async
-
 from apps.core.models import Station
 
 
-@sync_to_async
-def station_selector():
+async def station_selector():
     return [
         {
             "Code": item["code"],
@@ -15,7 +12,7 @@ def station_selector():
             "IsCarTicket": item["is_car_ticket"],
             "IsExclusion": item["is_exclusion"],
         }
-        for item in Station.objects.values(
+        async for item in Station.objects.values(
             "code",
             "name",
             "english_name",
