@@ -27,3 +27,15 @@ class PaginatedRajaAccountsSchema(Serializer):
     total: int
     page: int
     page_size: int
+
+
+class ProfileSchema(Serializer):
+    id: int
+    username: str
+    is_active: bool
+    is_superuser: bool
+    is_staff: bool
+    email: str
+    first_name: str
+    last_name: str
+    phone: str

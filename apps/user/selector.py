@@ -1,7 +1,7 @@
 from django.contrib.auth import aauthenticate
 from django.contrib.auth.base_user import AbstractBaseUser
 
-from django_bolt.exceptions import Unauthorized, NotFound
+from django_bolt.exceptions import Unauthorized, NotFound, HTTPException
 
 from apps.user.models import User, RajaAccount
 
@@ -11,6 +11,10 @@ async def login_user_selector(data) -> AbstractBaseUser:
     password = data.get("password")
     user = await aauthenticate(phone=phone, password=password)
     if user:
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="user_not_active")
+        if not user.is_staff:
+            raise HTTPException(status_code=403, detail="user_not_staff")
         return user
     else:
         raise Unauthorized(detail="Invalid credentials")
@@ -19,6 +23,8 @@ async def login_user_selector(data) -> AbstractBaseUser:
 async def get_user_by_id_selector(user_id: int) -> User:
     try:
         user = await User.objects.aget(id=user_id)
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="user_not_active")
         return user
     except User.DoesNotExist:
         raise NotFound(detail="user not found")
@@ -79,3 +85,11 @@ async def update_raja_account_selector(account_id: int, data: dict):
 async def delete_raja_account_selector(account_id: int):
     deleted_count, _ = await RajaAccount.objects.filter(id=account_id).adelete()
     return deleted_count > 0
+
+
+async def profile_selector(user_id: int) -> User:
+    try:
+        user = await User.objects.aget(id=user_id)
+        return user
+    except User.DoesNotExist:
+        raise NotFound(detail="user not found")

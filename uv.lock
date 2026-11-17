@@ -70,6 +70,7 @@ dependencies = [
     { name = "django-debug-toolbar" },
     { name = "django-json-widget" },
     { name = "django-redis" },
+    { name = "fake-useragent" },
     { name = "flower" },
     { name = "hiredis" },
     { name = "httpx" },
@@ -83,6 +84,7 @@ dependencies = [
     { name = "pypasser", extra = ["speech", "vision"] },
     { name = "python-decouple" },
     { name = "tenacity" },
+    { name = "undetected-playwright" },
 ]
 
 [package.metadata]
@@ -95,6 +97,7 @@ requires-dist = [
     { name = "django-debug-toolbar", specifier = ">=8.0.0" },
     { name = "django-json-widget", specifier = ">=2.1.1" },
     { name = "django-redis", specifier = ">=7.0.0" },
+    { name = "fake-useragent", specifier = ">=2.2.0" },
     { name = "flower", specifier = ">=2.2.0" },
     { name = "hiredis", specifier = ">=3.5.0" },
     { name = "httpx", specifier = ">=0.28.1" },
@@ -108,6 +111,7 @@ requires-dist = [
     { name = "pypasser", extras = ["speech", "vision"], specifier = ">=1.1.0" },
     { name = "python-decouple", specifier = ">=3.8" },
     { name = "tenacity", specifier = ">=9.2.1" },
+    { name = "undetected-playwright", specifier = ">=0.3.0" },
 ]
 
 [[package]]
@@ -548,6 +552,15 @@ source = { registry = "https://package-mirror.liara.ir/repository/pypi/simple" }
 sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/52/92/8a611141e42930c0f194f7504063ab87dfe970cf1a5af28e7703df448734/executing-2.3.0.tar.gz", hash = "sha256:15919cb5d667e5cb4e099511971d00d659573fff2dd5c4e6cd8b71636c7858d2" }
 wheels = [
     { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/4d/dd/8bc67e7d5ffc1d88aa5af511189dfb76dc4e1e5b808fab186146ef2663e5/executing-2.3.0-py3-none-any.whl", hash = "sha256:736e859c9f8701f11fcf516856f26f562e04776387824b43a35a1dfe21c84122" },
+]
+
+[[package]]
+name = "fake-useragent"
+version = "2.2.0"
+source = { registry = "https://package-mirror.liara.ir/repository/pypi/simple" }
+sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/41/43/948d10bf42735709edb5ae51e23297d034086f17fc7279fef385a7acb473/fake_useragent-2.2.0.tar.gz", hash = "sha256:4e6ab6571e40cc086d788523cf9e018f618d07f9050f822ff409a4dfe17c16b2" }
+wheels = [
+    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/51/37/b3ea9cd5558ff4cb51957caca2193981c6b0ff30bd0d2630ac62505d99d0/fake_useragent-2.2.0-py3-none-any.whl", hash = "sha256:67f35ca4d847b0d298187443aaf020413746e56acd985a611908c73dba2daa24" },
 ]
 
 [[package]]
@@ -1614,6 +1627,18 @@ dependencies = [
 sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/d8/89/2bd035df331499589fc92e59375c17c6cea6a500453b2c5f6a6ec9572825/tzlocal-5.4.5.tar.gz", hash = "sha256:ba976898bad27945178c9ca25c222c19e322b30c10342b9f40b46714f70d2d5f" }
 wheels = [
     { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/7b/c1/9be4e1a8a30db8729a86628073910e56f85aaf8a659e053f376a2e6ea5a8/tzlocal-5.4.5-py3-none-any.whl", hash = "sha256:ecab534f6d65d9deb4c4ea52c121ab6dd5958e9b878e71dcb102578269752454" },
+]
+
+[[package]]
+name = "undetected-playwright"
+version = "0.3.0"
+source = { registry = "https://package-mirror.liara.ir/repository/pypi/simple" }
+dependencies = [
+    { name = "playwright" },
+]
+sdist = { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/52/6a/867b2fb3386e82f902e1d3da0be52266f854209f9f6a4b08b89b9d5d6f3f/undetected_playwright-0.3.0.tar.gz", hash = "sha256:c476baf095eaea6ee320dd8739e83811da6006227fa9b2492a4e3a8c0cb2b315" }
+wheels = [
+    { url = "https://package-mirror.liara.ir/repository/pypi/packages/packages/62/26/87c3790c875d3331972ab0b809d4da0900793c26a700f007fed45d2ecf90/undetected_playwright-0.3.0-py3-none-any.whl", hash = "sha256:dbcc76a6bfdd4ebc849a26c8f084355295ec415af316b1e4fd0a2a011397df92" },
 ]
 
 [[package]]

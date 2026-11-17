@@ -1,6 +1,8 @@
 # apps/user/apis.py
-from django_bolt import BoltAPI, JWTAuthentication, IsAuthenticated
+from django_bolt import BoltAPI, IsAuthenticated, Depends
 from django_bolt.exceptions import HTTPException
+from django_bolt.auth import get_current_user
+
 
 from apps.ticket.schema import RajaAccountOptionSchema
 from apps.ticket.selector import get_raja_account_options_selector
@@ -8,6 +10,7 @@ from apps.user.schema import (
     RajaAccountCreateSchema,
     RajaAccountUpdateSchema,
     PaginatedRajaAccountsSchema,
+    ProfileSchema,
 )
 from apps.user.selector import (
     login_user_selector,
@@ -15,6 +18,7 @@ from apps.user.selector import (
     update_raja_account_selector,
     get_paginated_raja_accounts_selector,
     delete_raja_account_selector,
+    profile_selector,
 )
 from apps.user.serializer import (
     UserResponseSerializer,
@@ -23,27 +27,40 @@ from apps.user.serializer import (
     RefreshTokenResponseSerializer,
 )
 from apps.user.services import generate_token_services, generate_access_token_by_refresh
+from core.utils.jwt import ActiveUserJWT
 
 api = BoltAPI(prefix="/api/v1/auth")
 
 
-@api.post("/login", tags=["v1_user"], response_model=UserResponseSerializer)
+@api.post(
+    "/login",
+    tags=["v1_user"],
+    response_model=UserResponseSerializer,
+    summary="login only staff user",
+)
 async def login_user(data: LoginUserSerializer):
     res = await login_user_selector(data.dump())
     res_data = await generate_token_services(res)
     return res_data
 
 
-@api.post("/refresh", tags=["v1_user"], response_model=RefreshTokenResponseSerializer)
+@api.post(
+    "/refresh",
+    tags=["v1_user"],
+    response_model=RefreshTokenResponseSerializer,
+    status_code=200,
+)
 async def refresh(data: RefreshTokenSerializer):
-    res_data = await generate_access_token_by_refresh(data.refresh_token)
+    get_data = data.to_dict()
+    refresh_token = get_data.get("refresh_token")
+    res_data = await generate_access_token_by_refresh(refresh_token=refresh_token)
     return res_data
 
 
 @api.get(
     "/raja-accounts",
     response_model=PaginatedRajaAccountsSchema,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def list_raja_accounts(search: str = "", page: int = 1):
@@ -53,7 +70,7 @@ async def list_raja_accounts(search: str = "", page: int = 1):
 @api.post(
     "/raja-accounts",
     status_code=201,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
     response_model=RajaAccountCreateSchema,
 )
@@ -70,7 +87,7 @@ async def create_raja_account(payload: RajaAccountCreateSchema):
 
 @api.patch(
     "/raja-accounts/{account_id}",
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
     response_model=RajaAccountUpdateSchema,
 )
@@ -84,7 +101,7 @@ async def update_raja_account(account_id: int, payload: RajaAccountUpdateSchema)
 @api.delete(
     "/raja-accounts/{account_id}",
     status_code=204,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def delete_raja_account(account_id: int):
@@ -97,8 +114,22 @@ async def delete_raja_account(account_id: int):
 @api.get(
     "/raja-accounts/options",
     response_model=list[RajaAccountOptionSchema],
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def raja_account_options():
     return await get_raja_account_options_selector()
+
+
+@api.get(
+    "/me",
+    auth=[ActiveUserJWT()],
+    guards=[IsAuthenticated()],
+    status_code=200,
+    summary="me",
+    tags=["v1_user"],
+    response_model=ProfileSchema,
+)
+async def get_me(user=Depends(get_current_user)):
+    res = await profile_selector(user_id=user.id)
+    return res

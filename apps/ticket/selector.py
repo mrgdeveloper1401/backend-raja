@@ -1,3 +1,4 @@
+from asgiref.sync import sync_to_async
 from django.db.models import Count, Q, OuterRef, Subquery, Prefetch
 
 from apps.ticket.models import (
@@ -200,7 +201,7 @@ async def get_paginated_passengers_selector(
     queryset = Passenger.objects.all()
 
     if search:
-        queryset = queryset.filter(Q(first_name=search) | Q(last_name=search))
+        queryset = queryset.filter(national_id=search)
 
     # از طریق جدول واسط OrderPassenger به Order می‌رسیم
     last_order_subquery = (
@@ -232,6 +233,7 @@ async def get_paginated_passengers_selector(
                 "full_name": f"{passenger.first_name} {passenger.last_name}".strip(),
                 "orders_count": passenger.orders_count,
                 "last_order_date": passenger.last_order_date,
+                "national_id": passenger.national_id,
                 "is_adult": passenger.is_adult,
             }
         )
@@ -245,18 +247,21 @@ async def get_paginated_passengers_selector(
 
 
 async def get_passenger_detail_selector(passenger_id: int):
-    # استفاده از prefetch_related برای گرفتن سفارشات در یک کوئری جداگانه (بهینه)
-    passenger = (
-        await Passenger.objects.filter(id=passenger_id)
+    passenger = await (
+        Passenger.objects.filter(id=passenger_id)
         .prefetch_related(
             Prefetch(
-                "passenger_orders", queryset=Order.objects.order_by("-travel_date")
+                "passenger_order",
+                queryset=OrderPassenger.objects.select_related("order").order_by(
+                    "-order_id"
+                ),
+                to_attr="prefetched_order_passengers",
             )
         )
         .afirst()
     )
 
-    if not passenger:
+    if passenger is None:
         return None
 
     return {
@@ -264,18 +269,16 @@ async def get_passenger_detail_selector(passenger_id: int):
         "first_name": passenger.first_name,
         "last_name": passenger.last_name,
         "national_id": passenger.national_id,
-        "gender": passenger.gender,
         "birth_date": passenger.birth_date,
-        "phone": passenger.phone,
         "orders": [
             {
-                "id": o.id,
-                "origin": o.origin,
-                "destination": o.destination,
-                "travel_date": o.travel_date,
-                "passenger_type": o.passenger_type,
+                "id": item.order.id,
+                "origin": item.order.origin,
+                "destination": item.order.destination,
+                "travel_date": item.order.travel_date,
+                "passenger_type": item.order.passenger_type,
             }
-            for o in passenger.passenger_orders.all()
+            for item in passenger.prefetched_order_passengers
         ],
     }
 

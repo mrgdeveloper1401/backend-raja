@@ -5,12 +5,13 @@ from typing import List, AsyncGenerator
 import redis
 from django.core.cache import cache
 from django.shortcuts import aget_object_or_404
-from django_bolt import BoltAPI, EventSourceResponse
+from django_bolt import BoltAPI, EventSourceResponse, IsAuthenticated
 
 from apps.core.selector import station_selector
 from apps.core.serializers import StationSerializer
 from apps.ticket.models import ReservationAttempt
 from core.settings import CELERY_RESULT_BACKEND
+from core.utils.jwt import ActiveUserJWT
 
 api = BoltAPI(prefix="/api/v1/core")
 
@@ -20,7 +21,13 @@ async def mission_control_status():
     return {"status": "operational", "message": "app Control Online"}
 
 
-@api.get("/station", tags=["v1_core"], response_model=List[StationSerializer])
+@api.get(
+    "/station",
+    tags=["v1_core"],
+    response_model=List[StationSerializer],
+    auth=[ActiveUserJWT()],
+    guards=[IsAuthenticated()],
+)
 async def station():
     cache_key = "station_list"
     cache_value = await cache.aget(cache_key)

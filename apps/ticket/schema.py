@@ -55,6 +55,7 @@ class OrderListSchema(Serializer):
     train_number: str | None = None
     coupe_type: Optional[str] = None
 
+
 class PaginatedOrdersSchema(Serializer):
     items: list[OrderListSchema]
     total: int
@@ -67,6 +68,7 @@ class PassengerListSchema(Serializer):
     full_name: str
     orders_count: int
     is_adult: bool
+    national_id: str | None
     last_order_date: Optional[date] = None
 
 

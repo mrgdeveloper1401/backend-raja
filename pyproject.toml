@@ -16,6 +16,7 @@ dependencies = [
     "django-debug-toolbar>=8.0.0",
     "django-json-widget>=2.1.1",
     "django-redis>=7.0.0",
+    "fake-useragent>=2.2.0",
     "flower>=2.2.0",
     "hiredis>=3.5.0",
     "httpx>=0.28.1",
@@ -29,6 +30,7 @@ dependencies = [
     "pypasser[speech,vision]>=1.1.0",
     "python-decouple>=3.8",
     "tenacity>=9.2.1",
+    "undetected-playwright>=0.3.0",
 ]
 
 [project.scripts]

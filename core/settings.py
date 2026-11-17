@@ -43,10 +43,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django_bolt",
     "apps.user",
-    "apps.bot",
     "apps.core",
     "apps.ticket",
-    "apps.monitoring",
     "django.contrib.postgres",
     "django_json_widget",
 ]
@@ -157,7 +155,7 @@ else:
 
 # jwt token
 ACCESS_TOKEN_EXPIRE = 60 * 60 * 5
-REFRESH_TOKEN_EXPIRE = 60 * 60 * 24 * 30
+REFRESH_TOKEN_EXPIRE = 60 * 60 * 24 * 365
 
 if DEBUG:
     INSTALLED_APPS.append("debug_toolbar")

@@ -32,6 +32,8 @@ class UserAdmin(BaseUserAdmin):
                     "phone",
                     "email",
                     "usable_password",
+                    "is_staff",
+                    "is_active",
                     "password1",
                     "password2",
                 ),

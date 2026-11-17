@@ -1,6 +1,6 @@
 from typing import List
 
-from django_bolt import BoltAPI, JWTAuthentication, IsAuthenticated, paginate
+from django_bolt import BoltAPI, IsAuthenticated
 from django_bolt.exceptions import HTTPException
 
 from apps.ticket.models import Passenger
@@ -15,9 +15,6 @@ from apps.ticket.schema import (
     PassengerNewDetailSchema,
     OrderCreateSchema,
     DashboardChartStatusSchema,
-    RestitutionResponseSchema,
-    RestitutionSchema,
-    RestitutionPagination,
     OrderDetailSchema,
     OrderUpdateSchema,
 )
@@ -38,6 +35,7 @@ from apps.ticket.services import (
     delete_order_services,
     update_order_and_restart_selector,
 )
+from core.utils.jwt import ActiveUserJWT
 
 api = BoltAPI(prefix="/api/v1/admin")
 
@@ -47,7 +45,7 @@ api = BoltAPI(prefix="/api/v1/admin")
     status_code=200,
     summary="dashboard status",
     response_model=DashboardStatusSchema,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def dashboard_status():
@@ -60,7 +58,7 @@ async def dashboard_status():
     status_code=200,
     summary="dashboard status five reservation",
     response_model=List[ReservationListSchema],
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def five_reservation():
@@ -72,7 +70,7 @@ async def five_reservation():
     "/passengers",
     status_code=200,
     response_model=PaginatedPassengersSchema,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def list_passengers(
@@ -89,7 +87,7 @@ async def list_passengers(
     "/passengers",
     status_code=201,
     response_model=PassengerDetailSchema,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def create_passenger(payload: PassengerCreateSchema):
@@ -110,7 +108,7 @@ async def create_passenger(payload: PassengerCreateSchema):
 @api.get(
     "/passengers/{passenger_id}",
     response_model=PassengerNewDetailSchema,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def get_passenger(passenger_id: int):
@@ -124,7 +122,7 @@ async def get_passenger(passenger_id: int):
 @api.patch(
     "/passengers/{passenger_id}",
     response_model=PassengerDetailSchema,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def update_passenger(passenger_id: int, payload: PassengerUpdateSchema):
@@ -138,7 +136,7 @@ async def update_passenger(passenger_id: int, payload: PassengerUpdateSchema):
 @api.delete(
     "/passengers/{passenger_id}",
     status_code=204,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def delete_passenger(passenger_id: int):
@@ -151,7 +149,7 @@ async def delete_passenger(passenger_id: int):
 @api.post(
     "/orders",
     status_code=201,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def create_order(payload: OrderCreateSchema):
@@ -172,7 +170,7 @@ async def create_order(payload: OrderCreateSchema):
     "/orders",
     status_code=200,
     response_model=PaginatedOrdersSchema,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def list_orders(
@@ -190,7 +188,7 @@ async def list_orders(
     "/order/{order_id}",
     status_code=200,
     response_model=OrderDetailSchema,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def detail_order(order_id: int):
@@ -201,7 +199,7 @@ async def detail_order(order_id: int):
 @api.delete(
     "/orders/{order_id}",
     status_code=204,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def delete_order(order_id: int):
@@ -213,7 +211,7 @@ async def delete_order(order_id: int):
     "/status/chart",
     status_code=200,
     response_model=DashboardChartStatusSchema,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def dashboard_chart_status():
@@ -221,22 +219,10 @@ async def dashboard_chart_status():
     return res
 
 
-@api.post(
-    "/restitution",
-    response_model=RestitutionResponseSchema,
-    auth=[JWTAuthentication()],
-    guards=[IsAuthenticated()],
-    status_code=201,
-)
-async def restitution(data: RestitutionSchema):
-    res = await create_restitution(data.to_dict())
-    return res
-
-
 @api.patch(
     "/order/{order_id}",
     status_code=200,
-    auth=[JWTAuthentication()],
+    auth=[ActiveUserJWT()],
     guards=[IsAuthenticated()],
 )
 async def update_order(order_id: int, payload: OrderUpdateSchema):
