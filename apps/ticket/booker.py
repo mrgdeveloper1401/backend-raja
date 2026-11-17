@@ -494,7 +494,7 @@ class RajaBooker:
 
         print("کلیک روی دکمه ورود سبز...")
         await self.page.locator("form.login button[type='submit']").click()
-        await self.page.wait_for_load_state("domcontentloaded")
+        await self.page.wait_for_load_state("networkidle")
         await self._human_delay()
 
     async def _fill_search_form(self):
