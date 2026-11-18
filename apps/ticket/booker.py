@@ -10,7 +10,7 @@ from pathlib import Path
 
 import httpx
 from patchright.async_api import async_playwright
-from pypasser.captcha import arcaptcha
+# from pypasser.captcha import arcaptcha
 
 from apps.core.models import Station
 from apps.ticket.models import ReservationAttempt, ReservationStatus
@@ -725,31 +725,31 @@ class RajaBooker:
         await human_delay(1, 2)
 
         # حل کپچا
-        result = await arcaptcha.asolve(
-            page=self.page, site_key="t8xr2hpxue", domain="www.raja.ir"
-        )
-        if result.is_solved:
-            token = result.response_token
-            print("Token:", token)
-            await self._update_status(
-                captcha_token=result.response_token, status=ReservationStatus.CAPTCHA
-            )
-
-            # تزریق توکن به فیلد مخفی
-            await self.page.evaluate(f"""
-                () => {{
-                    let input = document.querySelector('input[name="arcaptcha-token"]');
-                    if (!input) {{
-                        input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'arcaptcha-token';
-                        document.querySelector('form')?.appendChild(input);
-                    }}
-                    input.value = '{token}';
-                }}
-            """)
-            print("کپچا با موفقیت حل شد")
-            await human_delay()
+        # result = await arcaptcha.asolve(
+        #     page=self.page, site_key="t8xr2hpxue", domain="www.raja.ir"
+        # )
+        # if result.is_solved:
+        #     token = result.response_token
+        #     print("Token:", token)
+        #     await self._update_status(
+        #         captcha_token=result.response_token, status=ReservationStatus.CAPTCHA
+        #     )
+        #
+        #     # تزریق توکن به فیلد مخفی
+        #     await self.page.evaluate(f"""
+        #         () => {{
+        #             let input = document.querySelector('input[name="arcaptcha-token"]');
+        #             if (!input) {{
+        #                 input = document.createElement('input');
+        #                 input.type = 'hidden';
+        #                 input.name = 'arcaptcha-token';
+        #                 document.querySelector('form')?.appendChild(input);
+        #             }}
+        #             input.value = '{token}';
+        #         }}
+        #     """)
+        #     print("کپچا با موفقیت حل شد")
+        #     await human_delay()
 
         payment_url = self.page.url
         print(f"لینک درگاه نهایی: {payment_url}")
