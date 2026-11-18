@@ -397,6 +397,16 @@ class RajaBooker:
                                             "4تخته",
                                             "چهار تخته",
                                             "چهارتخته",
+                                            "4 ستاره",
+                                            "4ستاره",
+                                            "چهار ستاره",
+                                            "چهارستاره",
+                                        ],
+                                        "four_five": [
+                                            "5 تخته",
+                                            "5تخته",
+                                            "پنج تخته",
+                                            "پنجتخته",
                                         ],
                                         "five": [
                                             "5 ستاره",
@@ -416,6 +426,9 @@ class RajaBooker:
                                         ],
                                         "salon": ["سالنی", "سالن"],
                                     }
+                                    if self.coupe_filter == 'four':
+                                        if "سالنی" in wagon_name or "سالن" in wagon_name:
+                                            continue
                                     keywords = coupe_keywords.get(self.coupe_filter, [])
                                     if keywords and not any(
                                         kw in wagon_name for kw in keywords
