@@ -256,6 +256,8 @@ class RajaBooker:
         captcha_token=None,
         access_token=None,
         user_agent=None,
+        accept_data=None,
+        matching_trains=None,
     ):
         if not self.attempt_id:
             return
@@ -274,6 +276,10 @@ class RajaBooker:
                 attempt.access_token = access_token
             if user_agent:
                 attempt.user_agent = user_agent
+            if accept_data:
+                attempt.accept_data = accept_data
+            if matching_trains:
+                attempt.matching_trains = matching_trains
             await attempt.asave()
 
         except Exception as e:
@@ -333,9 +339,8 @@ class RajaBooker:
     async def _monitor_and_book(self):
         await self._update_status(ReservationStatus.MONITORING)
 
-        api_key = self.raja_api_key
         headers = {
-            "Api-Key": api_key,
+            "Api-Key": self.raja_api_key,
             "Accept": "application/json",
             "User-Agent": self.user_agent,
         }
@@ -344,7 +349,7 @@ class RajaBooker:
 
         while True:
             try:
-                # ۱. بررسی بسته شدن مرورگر
+                # check browser is close
                 if not self.context or not self.page or self.page.is_closed():
                     print("⚠️ مرورگر بسته شده است. خروج...")
                     await self._update_status(
@@ -352,7 +357,7 @@ class RajaBooker:
                     )
                     return
 
-                # ۲. اگر q نداریم یا منقضی شده، از مرورگر بگیر
+                # check and get queue
                 if not self.api_q_param:
                     print("🔄 در حال دریافت q جدید از مرورگر...")
                     self.api_q_param = None  # ریست کردن برای دریافت مجدد
@@ -447,20 +452,13 @@ class RajaBooker:
                             print(
                                 f"🎯 {len(matching_trains)} قطار با فیلترهای شما مطابقت دارند."
                             )
-
                             if matching_trains:
+                                await self._update_status(status=ReservationStatus.MACH_TRAIN, matching_trains=matching_trains)
                                 # انتخاب اولین قطار مناسب
                                 selected_train = matching_trains[0]
                                 print(
                                     f"✅ قطار انتخاب شد: {selected_train['TrainNumber']} - {selected_train['WagonName']} - قیمت: {selected_train['CostDisplay']}"
                                 )
-
-                                # ۵. آماده‌سازی داده برای رزرو
-                                # تبدیل تاریخ ShamsiMoveDate به فرمت میلادی برای API
-                                # در اینجا از ExitDateTime استفاده می‌کنیم که فرمت ISO دارد
-                                move_date_iso = selected_train.get("ExitDateTime", "")[
-                                    :10
-                                ]  # "2026-11-21"
 
                                 accept_data = {
                                     "MoveType": "1"
@@ -501,7 +499,7 @@ class RajaBooker:
                                 )
 
                                 self.accept_data = accept_data
-
+                                await self._update_status(status=ReservationStatus.MACH_TRAIN, accept_data=self.accept_data)
                                 # ۶. تلاش برای رزرو
                                 print("🔒 در حال تلاش برای رزرو...")
                                 success = await self._reservation_ticket()

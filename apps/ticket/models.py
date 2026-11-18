@@ -15,7 +15,7 @@ class ReservationStatus(models.TextChoices):
     REDIRECT_GATEWAY = "redirect_gateway", _("هدایت به درگاه پرداخت")
     FAILED = "failed", _("ناموفق")
     CAPTCHA = "captcha", _("حل کپچا")
-
+    MACH_TRAIN = 'match_train', _("قطارهای یافت شده")
 
 class RestitutionEnum(models.TextChoices):
     SUCCESS = "success", _("موفق")
@@ -217,6 +217,8 @@ class ReservationAttempt(TimestampMixin, SoftDeleteMixin):
     captcha_token = models.CharField(max_length=512, blank=True, null=True)
     access_token = models.CharField(max_length=1024, blank=True, null=True)
     user_agent = models.CharField(max_length=1024, null=True)
+    accept_data = models.JSONField(blank=True, null=True)
+    matching_trains = models.JSONField(blank=True, null=True)
 
     class Meta:
         db_table = "reservation_attempts"
