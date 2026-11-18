@@ -10,9 +10,8 @@ import random
 from pathlib import Path
 
 import httpx
-from decouple import config
-from fake_useragent import UserAgent
 from patchright.async_api import async_playwright
+from pypasser.captcha import arcaptcha
 
 from apps.core.models import Station
 from apps.ticket.models import ReservationAttempt, ReservationStatus
@@ -69,6 +68,8 @@ class RajaBooker:
         departure_time_to=None,
         adult=None,
         child=None,
+        user_agent=None,
+        raja_api_key=None,
     ):
         self.account_id = account_id
         self.origin = origin
@@ -94,12 +95,13 @@ class RajaBooker:
         self.adult = adult
         self.account = None
         self.api_q_param = None
-        self.ua = UserAgent().chrome
         self.access_token = None
         self.expires_in = None
         self.lg_uf = None
         self.data = None
         self.accept_data = None
+        self.user_agent = user_agent
+        self.raja_api_key = raja_api_key
 
     async def _capture_api_params(self, response):
         """لیسنر برای استخراج پارامتر q از پاسخ API"""
@@ -158,19 +160,24 @@ class RajaBooker:
             error_trace = traceback.format_exc()
             print(f"خطای کلی در اجرای ربات:\n{error_trace}")
             await self._update_status(ReservationStatus.FAILED, error_message=str(e))
-        finally:
-            if self.context is not None:
-                await self.context.close()
+        # finally:
+        #     if self.context is not None:
+        #         try:
+        #             if self.page and not self.page.is_closed():
+        #                 await self.context.close()
+        #                 print("مرورگر با موفقیت بسته شد.")
+        #         except Exception as close_error:
+        #             print(f"مرورگر از قبل بسته شده بود یا خطا در بستن: {close_error}")
 
     async def _get_information(self):
         url = "https://hostservice.raja.ir/Api/ServiceProvider/GetInformation"
         headers = {
             "accept": "application/json",
-            "api-key": config("RAJA_API_KEY"),
+            "api-key": self.raja_api_key,
             "Authorization": f"bearer {self.access_token}",
             "content-type": "application/json",
             "origin": "https://www.raja.ir",
-            "user-agent": self.ua,
+            "user-agent": self.user_agent,
         }
 
         try:
@@ -225,7 +232,7 @@ class RajaBooker:
         url = "https://hostservice.raja.ir/token?ArCaptchaToken=undefined"
         headers = {
             "Accept": "application/json",
-            "User-Agent": self.ua,
+            "User-Agent": self.user_agent,
             "Content-Type": "application/x-www-form-urlencoded",
             "Origin": "https://www.raja.ir",
         }
@@ -240,6 +247,7 @@ class RajaBooker:
                 data = response.json()
                 self.access_token = data.get("access_token")
                 self.expires_in = data.get("expires_in")
+                await self._set_local_storage()
                 print("لاگین با موفقیت انجام شد")
                 await self._get_information()
                 return True
@@ -249,7 +257,13 @@ class RajaBooker:
                 return False
 
     async def _update_status(
-        self, status, payment_url=None, error_message=None, captcha_token=None
+        self,
+        status,
+        payment_url=None,
+        error_message=None,
+        captcha_token=None,
+        access_token=None,
+        user_agent=None,
     ):
         if not self.attempt_id:
             return
@@ -264,6 +278,10 @@ class RajaBooker:
                 attempt.error_message = error_message
             if captcha_token:
                 attempt.captcha_token = captcha_token
+            if access_token:
+                attempt.access_token = access_token
+            if user_agent:
+                attempt.user_agent = user_agent
             await attempt.asave()
 
         except Exception as e:
@@ -323,15 +341,14 @@ class RajaBooker:
     async def _monitor_and_book(self):
         await self._update_status(ReservationStatus.MONITORING)
 
-        api_key = config("RAJA_API_KEY")
+        api_key = self.raja_api_key
         headers = {
             "Api-Key": api_key,
             "Accept": "application/json",
-            "User-Agent": self.ua,
+            "User-Agent": self.user_agent,
         }
 
         poll_interval = 0.5  # check api
-        q_refresh_interval = 60.0  # هر 60 ثانیه q را از مرورگر دوباره بگیر
         last_q_refresh = asyncio.get_event_loop().time()
 
         while True:
@@ -526,19 +543,6 @@ class RajaBooker:
                 except Exception as e:
                     print(f"⚠️ خطا در درخواست API: {e}")
 
-                # ۷. به‌روزرسانی q هر ۶۰ ثانیه
-                now = asyncio.get_event_loop().time()
-                if now - last_q_refresh >= q_refresh_interval:
-                    print("🔄 به‌روزرسانی q از مرورگر...")
-                    self.api_q_param = None
-                    await self.page.reload(wait_until="domcontentloaded")
-                    await self.page.wait_for_timeout(2000)
-                    for _ in range(20):
-                        if self.api_q_param:
-                            break
-                        await asyncio.sleep(0.1)
-                    last_q_refresh = asyncio.get_event_loop().time()
-
                 await asyncio.sleep(poll_interval)
 
             except Exception as e:
@@ -558,9 +562,9 @@ class RajaBooker:
     async def _reservation_ticket(self):
         url = "https://hostservice.raja.ir/Api/ServiceProvider/LockSeat"
         headers = {
-            "Api-Key": config("RAJA_API_KEY"),
+            "Api-Key": self.raja_api_key,
             "Accept": "application/json",
-            "User-Agent": self.ua,
+            "User-Agent": self.user_agent,
             "Origin": "https://www.raja.ir",
             "Host": "hostservice.raja.ir",
             "Authorization": f"bearer {self.access_token}",
@@ -618,3 +622,192 @@ class RajaBooker:
         except Exception as e:
             print(f"❌ خطا در درخواست رزرو: {e}")
             return False
+    
+    async def _fill_passenger_details(self):
+        await human_delay()
+        print("در حال پر کردن مشخصات مسافران...")
+
+        # منتظر می‌مانیم تا فرم مسافران لود شود
+        await self.page.get_by_text("کد ملی/شماره پاسپورت").first.wait_for(
+            state="visible", timeout=15000
+        )
+        print("فرم مسافران با موفقیت لود شد.")
+
+        await human_delay()
+
+        # پیدا کردن همه بلوک‌های مسافر
+        passenger_blocks = self.page.locator(".passanger-registor").filter(
+            has=self.page.get_by_text("کد ملی/شماره پاسپورت")
+        )
+
+        count = await passenger_blocks.count()
+        print(f"تعداد بلوک‌های مسافر پیدا شده: {count}")
+
+        # حلقه روی مسافران (بر اساس لیست passengers که از دیتابیس آمده)
+        for i, passenger in enumerate(self.passengers):
+            if i >= count:
+                print(f"هشدار: بلوک برای مسافر {i + 1} پیدا نشد.")
+                break
+
+            block = passenger_blocks.nth(i)
+            print(f"--- در حال پردازش مسافر {i + 1} ---")
+
+            # ۱. پر کردن کد ملی
+            try:
+                await human_delay()
+                national_id = passenger.get("national_id")
+                if national_id:
+                    # پیدا کردن اینپوت کد ملی در این بلوک
+                    # در HTML شما، اینپوت کد ملی بعد از لیبل "کد ملی/شماره پاسپورت" قرار دارد
+                    input_locator = block.locator("input[type='text']").first
+                    await input_locator.fill(str(national_id))
+                    print(f"کد ملی مسافر {i + 1} پر شد: {national_id}")
+            except Exception as e:
+                print(f"خطا در پر کردن کد ملی مسافر {i + 1}: {e}")
+
+            # ۲. پر کردن تاریخ تولد
+            try:
+                await human_delay()
+                birth_date = passenger.get("birth_date")
+                if birth_date:
+                    # در HTML شما، اینپوت تاریخ تولد دارای title="روز/ماه/سال" است
+                    birth_input = block.locator("input[title='روز/ماه/سال']")
+                    if await birth_input.count() > 0:
+                        await birth_input.fill(str(birth_date))
+                        print(f"تاریخ تولد مسافر {i + 1} پر شد: {birth_date}")
+                    else:
+                        # اگر title پیدا نشد، از tabindex استفاده می‌کنیم (به عنوان fallback)
+                        # tabindex برای مسافر اول 12، دوم 22، سوم 32 است
+                        tab_index = 12 + (i * 10)
+                        birth_input = block.locator(f"input[tabindex='{tab_index}']")
+                        if await birth_input.count() > 0:
+                            await birth_input.fill(str(birth_date))
+                            print(
+                                f"تاریخ تولد مسافر {i + 1} (با tabindex) پر شد: {birth_date}"
+                            )
+            except Exception as e:
+                print(f"خطا در پر کردن تاریخ تولد مسافر {i + 1}: {e}")
+
+            # ۳. پر کردن نام (اگر فیلد قابل ویرایش وجود داشت)
+            try:
+                await human_delay()
+                first_name = passenger.get("first_name")
+                if first_name:
+                    # در HTML شما نام به صورت input دیده نمی‌شود،
+                    # اما اگر وجود داشت، سعی می‌کنیم پر کنیم
+                    name_input = block.locator("input[name='pName']")
+                    if await name_input.count() > 0:
+                        await name_input.fill(str(first_name))
+                        print(f"نام مسافر {i + 1} پر شد: {first_name}")
+            except Exception as e:
+                # اگر فیلد نام وجود نداشت، خطا را نادیده می‌گیریم
+                pass
+
+            # ۴. پر کردن نام خانوادگی (اگر فیلد قابل ویرایش وجود داشت)
+            try:
+                await human_delay()
+                last_name = passenger.get("last_name")
+                if last_name:
+                    family_input = block.locator("input[name='pFamily']")
+                    if await family_input.count() > 0:
+                        await family_input.fill(str(last_name))
+                        print(f"نام خانوادگی مسافر {i + 1} پر شد: {last_name}")
+            except Exception as e:
+                # اگر فیلد نام خانوادگی وجود نداشت، خطا را نادیده می‌گیریم
+                pass
+
+            # ۵. انتخاب نوع مسافر (بزرگسال / خردسال)
+            # try:
+            #     await human_delay()
+            #     is_adult = passenger.get("is_adult", True)
+            #     # پیدا کردن سلکت نوع مسافر در این بلوک
+            #     type_select = block.locator("select").first
+            #     if await type_select.count() > 0:
+            #         # مقدار 1 برای بزرگسال، 2 برای خردسال
+            #         value = "1" if is_adult else "2"
+            #         await type_select.select_option(value=value)
+            #         print(f"نوع مسافر {i + 1} انتخاب شد: {'بزرگسال' if is_adult else 'خردسال'}")
+            # except Exception as e:
+            #     print(f"خطا در انتخاب نوع مسافر {i + 1}: {e}")
+
+        print("عملیات پر کردن مشخصات مسافران به پایان رسید.")
+
+    async def _go_to_payment(self):
+        print("در حال تیک زدن قوانین و رفتن به پرداخت...")
+        await human_delay()
+
+        # تیک قوانین
+        try:
+            await self.page.locator(
+                "label.custom-control-label:has-text('صحت مشخصات')"
+            ).click()
+            await human_delay()
+        except:
+            await self.page.locator(
+                "div.custom-control.custom-checkbox input[type='checkbox']"
+            ).first.check(force=True)
+            await human_delay()
+
+        # شماره موبایل
+        try:
+            phone_input = self.page.locator("input.phonenumber")
+            await phone_input.wait_for(state="visible")
+            if self.travel_phone and not await phone_input.input_value():
+                await phone_input.type(self.travel_phone, delay=60)
+                await human_delay()
+        except:
+            pass
+
+        await human_delay()
+
+        print("کلیک روی دکمه پرداخت اولیه...")
+        await self.page.locator("button.btn-success:has-text('پرداخت')").click()
+        await human_delay()
+
+        print("در حال منتظر ماندن برای لود شدن کپچا...")
+        # کلیک بر روی دکمه من ربات نیستم
+        captcha_box = self.page.locator("#input-checkbox")
+        await captcha_box.wait_for(state="visible", timeout=15000)
+        await human_delay()
+
+        await captcha_box.click()
+
+        print("منتظر حل شدن کپچا...")
+        await self._human_delay(1, 2)
+        self.page.on("request", log_request)
+        self.page.on("response", log_response)
+
+        # حل کپچا
+        result = await arcaptcha.asolve(
+            page=self.page, site_key="t8xr2hpxue", domain="www.raja.ir"
+        )
+        if result.is_solved:
+            token = result.response_token
+            print("Token:", token)
+            await self._update_status(
+                captcha_token=result.response_token, status=ReservationStatus.CAPTCHA
+            )
+
+            # تزریق توکن به فیلد مخفی
+            await self.page.evaluate(f"""
+                () => {{
+                    let input = document.querySelector('input[name="arcaptcha-token"]');
+                    if (!input) {{
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'arcaptcha-token';
+                        document.querySelector('form')?.appendChild(input);
+                    }}
+                    input.value = '{token}';
+                }}
+            """)
+            print("کپچا با موفقیت حل شد")
+            await human_delay()
+
+        payment_url = self.page.url
+        print(f"لینک درگاه نهایی: {payment_url}")
+        await self._update_status(
+            ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
+        )
+        print("به درگاه پرداخت رسیدیم برای خارج شدن از مرورگر فقط مرورگر رو ببندید")
+        await self.page.pause()

@@ -6,6 +6,7 @@ from celery import shared_task
 
 from .booker import RajaBooker
 from .models import Reservation, ReservationAttempt
+from ..core.models import RajaApiKey
 
 
 @shared_task(queue="booker", time_limit=3600)
@@ -21,6 +22,9 @@ def run_attempt_task(attempt_id):
         )
         .get(id=attempt_id)
     )
+
+    # raja api key
+    raja_api_jey = RajaApiKey.objects.last()
 
     # get reservation
     reservation = attempt.reservation
@@ -77,6 +81,8 @@ def run_attempt_task(attempt_id):
         train_number=reservation.train_number,
         adult=reservation.adult_number,
         child=reservation.baby_number,
+        user_agent=attempt.user_agent,
+        raja_api_key=raja_api_jey.api_key,
     )
 
     return asyncio.run(booker.start())

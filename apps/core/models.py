@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.managers import SoftDeleteManager
 
@@ -50,3 +51,12 @@ class Station(models.Model):
         db_table = "station"
         verbose_name = "ایستگاه"
         verbose_name_plural = "ایستگاه‌ها"
+
+
+class RajaApiKey(TimestampMixin, SoftDeleteMixin):
+    api_key = models.CharField(max_length=1024)
+
+    class Meta:
+        db_table = "raja_api_key"
+        verbose_name = _("کلید های رجا")
+        verbose_name_plural = _("کلید های رجا")
