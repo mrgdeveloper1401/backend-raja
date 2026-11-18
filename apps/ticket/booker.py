@@ -70,7 +70,7 @@ class RajaBooker:
         child=None,
         user_agent=None,
         raja_api_key=None,
-        access_token=None
+        access_token=None,
     ):
         self.account_id = account_id
         self.origin = origin
@@ -96,7 +96,7 @@ class RajaBooker:
         self.adult = adult
         self.account = None
         self.api_q_param = None
-        self.access_token = access_token | None
+        self.access_token = access_token
         self.expires_in = None
         self.lg_uf = None
         self.data = None
@@ -249,7 +249,9 @@ class RajaBooker:
             if response.status_code == 200:
                 data = response.json()
                 self.access_token = data.get("access_token")
-                await self._update_status(access_token=self.access_token, status=ReservationStatus.PENDING)
+                await self._update_status(
+                    access_token=self.access_token, status=ReservationStatus.PENDING
+                )
                 self.expires_in = data.get("expires_in")
                 await self._set_local_storage()
                 print("لاگین با موفقیت انجام شد")
@@ -537,7 +539,9 @@ class RajaBooker:
                             self.api_q_param = None
                             continue
                         elif response.status_code == 429:
-                            print("⚠️ خطای 429 در دریافت لیست قطارها. 3 ثانیه صبر می‌کنیم...")
+                            print(
+                                "⚠️ خطای 429 در دریافت لیست قطارها. 3 ثانیه صبر می‌کنیم..."
+                            )
                             await asyncio.sleep(3)
                         else:
                             print(
