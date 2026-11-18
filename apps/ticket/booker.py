@@ -348,8 +348,7 @@ class RajaBooker:
             "User-Agent": self.user_agent,
         }
 
-        poll_interval = 0.5  # check api
-        last_q_refresh = asyncio.get_event_loop().time()
+        poll_interval = 2  # check api
 
         while True:
             try:
@@ -533,6 +532,9 @@ class RajaBooker:
                             print("⚠️ q منقضی شده است. دریافت q جدید...")
                             self.api_q_param = None
                             continue
+                        elif response.status_code == 429:
+                            print("⚠️ خطای 429 در دریافت لیست قطارها. 3 ثانیه صبر می‌کنیم...")
+                            await asyncio.sleep(3)
                         else:
                             print(
                                 f"❌ خطای API: {response.status_code} - {response.text[:200]}"
@@ -613,6 +615,9 @@ class RajaBooker:
                     else:
                         print("⚠️ پاسخ رزرو حاوی GoOutputLock نیست.")
                         return False
+                elif response.status_code == 429:
+                    print("⚠️ خطای 429: درخواست‌های زیاد. 3 ثانیه صبر می‌کنیم...")
+                    await asyncio.sleep(3)
                 else:
                     print(
                         f"❌ عدم موفقیت در رزرو: {response.status_code} - {response.text}"
