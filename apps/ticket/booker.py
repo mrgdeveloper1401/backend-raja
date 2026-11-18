@@ -143,11 +143,13 @@ class RajaBooker:
                 self.page.on("response", self._capture_api_params)
 
                 # check login
-                check_information = await self._get_information()
-                if not check_information:
+                if not self.access_token:
                     # login user
                     print("در حال لاگین")
                     await self._login()
+
+                # user info
+                await self._get_information()
 
                 # پر کردن فرم جستجو
                 print("fill params ...")
