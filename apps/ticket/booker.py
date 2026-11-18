@@ -31,20 +31,6 @@ async def human_delay(min_ms=0.1, max_ms=0.2, default=None):
         await asyncio.sleep(delay)
 
 
-def log_request(request):
-    if request.resource_type in ["xhr", "fetch"]:
-        print(f"--> {request.method} {request.url}")
-        print("Headers", request.headers)
-        if request.post_data:
-            print("body", request.post_data)
-
-
-def log_response(response):
-    if response.request.resource_type in ["xhr", "fetch"]:
-        print(f"<-- {response.status} {response.url}")
-        print("response body", response.text)
-
-
 class RajaBooker:
     def __init__(
         self,
@@ -787,8 +773,6 @@ class RajaBooker:
 
         print("منتظر حل شدن کپچا...")
         await self._human_delay(1, 2)
-        self.page.on("request", log_request)
-        self.page.on("response", log_response)
 
         # حل کپچا
         result = await arcaptcha.asolve(
