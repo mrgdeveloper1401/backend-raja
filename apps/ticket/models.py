@@ -215,7 +215,6 @@ class ReservationAttempt(TimestampMixin, SoftDeleteMixin):
         max_length=50, blank=True, null=True, verbose_name="شناسه تسک سلری"
     )
     captcha_token = models.CharField(max_length=512, blank=True, null=True)
-    access_token = models.CharField(max_length=1024, blank=True, null=True)
     user_agent = models.CharField(max_length=1024, null=True)
     accept_data = models.JSONField(blank=True, null=True)
     matching_trains = models.JSONField(blank=True, null=True)

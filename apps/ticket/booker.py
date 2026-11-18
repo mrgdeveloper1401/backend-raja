@@ -11,7 +11,6 @@ from pathlib import Path
 
 import httpx
 from patchright.async_api import async_playwright
-from pypasser.captcha import arcaptcha
 
 from apps.core.models import Station
 from apps.ticket.models import ReservationAttempt, ReservationStatus
@@ -80,7 +79,7 @@ class RajaBooker:
         self.departure_time_to = departure_time_to
         self.child = child
         self.adult = adult
-        self.account = None
+        self.account = None # RajaAccount
         self.api_q_param = None
         self.access_token = access_token
         self.expires_in = None
@@ -137,6 +136,9 @@ class RajaBooker:
                 # user info
                 await self._get_information()
 
+                # check local storage
+                await self._check_local_storage()
+
                 # پر کردن فرم جستجو
                 print("fill params ...")
                 await self._fill_params()
@@ -177,43 +179,44 @@ class RajaBooker:
                     self.lg_uf = response.json()
                     print(f"✅ اطلاعات کاربر با موفقیت دریافت شد: {self.lg_uf}")
                     return True
+                elif response.status_code == 429:
+                    print('محدودیت درخواست رسیدیم ۳ثانیه صبر میکنیم')
+                    await asyncio.sleep(3)
+                    return False
                 else:
                     print(
                         f"❌ خطا در دریافت اطلاعات کاربر: {response.status_code} - {response.text}"
                     )
+                    print('لاگین مجدد')
+                    await self._login()
                     return False
 
         except Exception as e:
             print(f"❌ خطا در اتصال: {e}")
             return False
 
+    async def _check_local_storage(self):
+        access_token = await self.page.local_storage.get("Access_Token")
+        if not access_token:
+            await self._login()
+        print('اکسس توکن موجود هست', access_token)
+
     async def _set_local_storage(self):
         if not self.access_token:
-            print("⚠️ توکن موجود نیست. ابتدا لاگین کنید.")
-            return
+            print("⚠️ توکن موجود نیست. ابتدا لاگین میکنیم.")
+            await self._login()
 
         token_with_bearer = f"bearer {self.access_token}"
         expiry_time = int((time.time() + 315360000) * 1000)
         ams_value = json.dumps({"_expired": expiry_time, "_value": "1"})
 
-        script = f"""
-            () => {{
-                // ذخیره Access_Token
-                localStorage.setItem('Access_Token', '{token_with_bearer}');
-
-                // ذخیره AMS (برای جلوگیری از خطای انقضا در انگولار)
-                localStorage.setItem('AMS', '{ams_value}');
-
-                // ذخیره LgUF (نام کاربری برای نمایش در هدر)
-                localStorage.setItem('LgUF', '{self.lg_uf}');
-
-                console.log('Local Storage با موفقیت تنظیم شد.');
-            }}
-        """
-
         try:
-            await self.page.evaluate(script)
+            await self.page.local_storage.set_item("Access_Token", token_with_bearer)
+            await self.page.local_storage.set_item("LgUF", self.lg_uf)
+            await self.page.local_storage.set_item("AMS", ams_value)
             print("✅ توکن و مقادیر مورد نیاز در Local Storage مرورگر ذخیره شد.")
+            all_item = await self.page.local_storage.items()
+            print("all item", all_item)
         except Exception as e:
             print(f"خطا در ذخیره در Local Storage: {e}")
 
@@ -234,15 +237,22 @@ class RajaBooker:
             response = await client.post(url, headers=headers, data=data)
             if response.status_code == 200:
                 data = response.json()
-                self.access_token = data.get("access_token")
-                await self._update_status(
-                    access_token=self.access_token, status=ReservationStatus.PENDING
-                )
+                # get data
+                self.access_token = data.get("access_token") # set access_token
                 self.expires_in = data.get("expires_in")
-                await self._set_local_storage()
+
+                # save access_token in raja account
+                self.account.access_token = self.access_token
+                await self.account.asave(update_fields=['access_token', 'updated_at'])
+
+                await self._get_information() # get information
+                await self._set_local_storage() # save into local storage browser
                 print("لاگین با موفقیت انجام شد")
-                await self._get_information()
                 return True
+            elif response.status_code == 429:
+                print('محدودیت درخواست ۳ ثانیه صبر میکنیم')
+                await asyncio.sleep(3)
+                return False
             else:
                 print(f"❌ خطا در لاگین: {response.status_code}")
                 print(f"پاسخ سرور: {response.text}")
@@ -473,8 +483,10 @@ class RajaBooker:
 
                                 # ⭐️ حلقه داخلی برای تلاش مجدد رزرو همان قطار
                                 max_reserve_attempts = 5
-                                for attempt_num in range(1, max_reserve_attempts + 1):
-                                    print(f"🔒 تلاش {attempt_num} برای رزرو قطار {selected_train['TrainNumber']}...")
+                                for attempt_num in range(max_reserve_attempts):
+                                    print("تلاس برای رزرو قطار")
+                                    print(' 3 ثانیه صبر میکنیم برای جلوگیری از خطای 429')
+                                    await asyncio.sleep(3)
                                     success = await self._reservation_ticket()
 
                                     if success:
@@ -482,14 +494,11 @@ class RajaBooker:
                                         return
                                     else:
                                         if attempt_num < max_reserve_attempts:
-                                            # اگر خطا 429 بود، بیشتر صبر کن
-                                            # یا یک تاخیر تصادفی بین 1 ثانیه
-                                            wait_time = 1
-                                            print(f"⚠️ رزرو ناموفق. {wait_time:.1f} ثانیه صبر و تلاش مجدد...")
-                                            await asyncio.sleep(wait_time)
+                                            print(f"⚠️ رزرو ناموفق. {attempt_num:.1f} ثانیه صبر و تلاش مجدد...")
+                                            await asyncio.sleep(attempt_num)
                                         else:
                                             print("❌ تمام تلاش‌های رزرو ناموفق بود. بازگشت به رصد...")
-                                            break  # از حلقه داخلی خارج شو و به حلقه اصلی برگرد
+                                            break
 
                                 # به حلقه اصلی برمی‌گردیم تا لیست جدید بگیریم
                                 continue
@@ -502,8 +511,8 @@ class RajaBooker:
                             self.api_q_param = None
                             continue
                         elif response.status_code == 429:
-                            print("⚠️ خطای 429 در دریافت لیست قطارها. 10 ثانیه صبر می‌کنیم...")
-                            await asyncio.sleep(10)
+                            print("⚠️ خطای 429 در دریافت لیست قطارها. 3 ثانیه صبر می‌کنیم...")
+                            await asyncio.sleep(3)
                         else:
                             print(f"❌ خطای API: {response.status_code} - {response.text[:200]}")
 
@@ -580,8 +589,10 @@ class RajaBooker:
                         print("⚠️ پاسخ رزرو حاوی GoOutputLock نیست.")
                         return False
                 elif response.status_code == 429:
-                    print("⚠️ خطای 429: درخواست‌های زیاد. 3 ثانیه صبر می‌کنیم...")
+                    print("⚠️ خطای 429: درخواست‌های")
+                    print('3 ثانیه صبر میکنیم')
                     await asyncio.sleep(3)
+                    return False
                 else:
                     print(
                         f"❌ عدم موفقیت در رزرو: {response.status_code} - {response.text}"
@@ -591,190 +602,3 @@ class RajaBooker:
         except Exception as e:
             print(f"❌ خطا در درخواست رزرو: {e}")
             return False
-
-    async def _fill_passenger_details(self):
-        await human_delay()
-        print("در حال پر کردن مشخصات مسافران...")
-
-        # منتظر می‌مانیم تا فرم مسافران لود شود
-        await self.page.get_by_text("کد ملی/شماره پاسپورت").first.wait_for(
-            state="visible", timeout=15000
-        )
-        print("فرم مسافران با موفقیت لود شد.")
-
-        await human_delay()
-
-        # پیدا کردن همه بلوک‌های مسافر
-        passenger_blocks = self.page.locator(".passanger-registor").filter(
-            has=self.page.get_by_text("کد ملی/شماره پاسپورت")
-        )
-
-        count = await passenger_blocks.count()
-        print(f"تعداد بلوک‌های مسافر پیدا شده: {count}")
-
-        # حلقه روی مسافران (بر اساس لیست passengers که از دیتابیس آمده)
-        for i, passenger in enumerate(self.passengers):
-            if i >= count:
-                print(f"هشدار: بلوک برای مسافر {i + 1} پیدا نشد.")
-                break
-
-            block = passenger_blocks.nth(i)
-            print(f"--- در حال پردازش مسافر {i + 1} ---")
-
-            # ۱. پر کردن کد ملی
-            try:
-                await human_delay()
-                national_id = passenger.get("national_id")
-                if national_id:
-                    # پیدا کردن اینپوت کد ملی در این بلوک
-                    # در HTML شما، اینپوت کد ملی بعد از لیبل "کد ملی/شماره پاسپورت" قرار دارد
-                    input_locator = block.locator("input[type='text']").first
-                    await input_locator.fill(str(national_id))
-                    print(f"کد ملی مسافر {i + 1} پر شد: {national_id}")
-            except Exception as e:
-                print(f"خطا در پر کردن کد ملی مسافر {i + 1}: {e}")
-
-            # ۲. پر کردن تاریخ تولد
-            try:
-                await human_delay()
-                birth_date = passenger.get("birth_date")
-                if birth_date:
-                    # در HTML شما، اینپوت تاریخ تولد دارای title="روز/ماه/سال" است
-                    birth_input = block.locator("input[title='روز/ماه/سال']")
-                    if await birth_input.count() > 0:
-                        await birth_input.fill(str(birth_date))
-                        print(f"تاریخ تولد مسافر {i + 1} پر شد: {birth_date}")
-                    else:
-                        # اگر title پیدا نشد، از tabindex استفاده می‌کنیم (به عنوان fallback)
-                        # tabindex برای مسافر اول 12، دوم 22، سوم 32 است
-                        tab_index = 12 + (i * 10)
-                        birth_input = block.locator(f"input[tabindex='{tab_index}']")
-                        if await birth_input.count() > 0:
-                            await birth_input.fill(str(birth_date))
-                            print(
-                                f"تاریخ تولد مسافر {i + 1} (با tabindex) پر شد: {birth_date}"
-                            )
-            except Exception as e:
-                print(f"خطا در پر کردن تاریخ تولد مسافر {i + 1}: {e}")
-
-            # ۳. پر کردن نام (اگر فیلد قابل ویرایش وجود داشت)
-            try:
-                await human_delay()
-                first_name = passenger.get("first_name")
-                if first_name:
-                    # در HTML شما نام به صورت input دیده نمی‌شود،
-                    # اما اگر وجود داشت، سعی می‌کنیم پر کنیم
-                    name_input = block.locator("input[name='pName']")
-                    if await name_input.count() > 0:
-                        await name_input.fill(str(first_name))
-                        print(f"نام مسافر {i + 1} پر شد: {first_name}")
-            except Exception as e:
-                # اگر فیلد نام وجود نداشت، خطا را نادیده می‌گیریم
-                pass
-
-            # ۴. پر کردن نام خانوادگی (اگر فیلد قابل ویرایش وجود داشت)
-            try:
-                await human_delay()
-                last_name = passenger.get("last_name")
-                if last_name:
-                    family_input = block.locator("input[name='pFamily']")
-                    if await family_input.count() > 0:
-                        await family_input.fill(str(last_name))
-                        print(f"نام خانوادگی مسافر {i + 1} پر شد: {last_name}")
-            except Exception as e:
-                # اگر فیلد نام خانوادگی وجود نداشت، خطا را نادیده می‌گیریم
-                pass
-
-            # ۵. انتخاب نوع مسافر (بزرگسال / خردسال)
-            # try:
-            #     await human_delay()
-            #     is_adult = passenger.get("is_adult", True)
-            #     # پیدا کردن سلکت نوع مسافر در این بلوک
-            #     type_select = block.locator("select").first
-            #     if await type_select.count() > 0:
-            #         # مقدار 1 برای بزرگسال، 2 برای خردسال
-            #         value = "1" if is_adult else "2"
-            #         await type_select.select_option(value=value)
-            #         print(f"نوع مسافر {i + 1} انتخاب شد: {'بزرگسال' if is_adult else 'خردسال'}")
-            # except Exception as e:
-            #     print(f"خطا در انتخاب نوع مسافر {i + 1}: {e}")
-
-        print("عملیات پر کردن مشخصات مسافران به پایان رسید.")
-
-    async def _go_to_payment(self):
-        print("در حال تیک زدن قوانین و رفتن به پرداخت...")
-        await human_delay()
-
-        # تیک قوانین
-        try:
-            await self.page.locator(
-                "label.custom-control-label:has-text('صحت مشخصات')"
-            ).click()
-            await human_delay()
-        except:
-            await self.page.locator(
-                "div.custom-control.custom-checkbox input[type='checkbox']"
-            ).first.check(force=True)
-            await human_delay()
-
-        # شماره موبایل
-        try:
-            phone_input = self.page.locator("input.phonenumber")
-            await phone_input.wait_for(state="visible")
-            if self.travel_phone and not await phone_input.input_value():
-                await phone_input.type(self.travel_phone, delay=60)
-                await human_delay()
-        except:
-            pass
-
-        await human_delay()
-
-        print("کلیک روی دکمه پرداخت اولیه...")
-        await self.page.locator("button.btn-success:has-text('پرداخت')").click()
-        await human_delay()
-
-        print("در حال منتظر ماندن برای لود شدن کپچا...")
-        # کلیک بر روی دکمه من ربات نیستم
-        captcha_box = self.page.locator("#input-checkbox")
-        await captcha_box.wait_for(state="visible", timeout=15000)
-        await human_delay()
-
-        await captcha_box.click()
-
-        print("منتظر حل شدن کپچا...")
-        await human_delay(1, 2)
-
-        # حل کپچا
-        result = await arcaptcha.asolve(
-            page=self.page, site_key="t8xr2hpxue", domain="www.raja.ir"
-        )
-        if result.is_solved:
-            token = result.response_token
-            print("Token:", token)
-            await self._update_status(
-                captcha_token=result.response_token, status=ReservationStatus.CAPTCHA
-            )
-
-            # تزریق توکن به فیلد مخفی
-            await self.page.evaluate(f"""
-                () => {{
-                    let input = document.querySelector('input[name="arcaptcha-token"]');
-                    if (!input) {{
-                        input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'arcaptcha-token';
-                        document.querySelector('form')?.appendChild(input);
-                    }}
-                    input.value = '{token}';
-                }}
-            """)
-            print("کپچا با موفقیت حل شد")
-            await human_delay()
-
-        payment_url = self.page.url
-        print(f"لینک درگاه نهایی: {payment_url}")
-        await self._update_status(
-            ReservationStatus.REDIRECT_GATEWAY, payment_url=payment_url
-        )
-        print("به درگاه پرداخت رسیدیم برای خارج شدن از مرورگر فقط مرورگر رو ببندید")
-        await self.page.pause()

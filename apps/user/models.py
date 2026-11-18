@@ -46,9 +46,7 @@ class RajaAccount(TimestampMixin):
     is_active = models.BooleanField(default=True, verbose_name="فعال")
 
     # اینجا می‌تونیم سشن لاگین شده رو هم ذخیره کنیم
-    session_json = models.TextField(
-        blank=True, null=True, verbose_name="سشن ذخیره شده (JSON)"
-    )
+    access_token = models.CharField(max_length=1024, blank=True, null=True)
 
     class Meta:
         db_table = "raja_accounts"

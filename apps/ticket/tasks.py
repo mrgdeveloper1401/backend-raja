@@ -24,7 +24,7 @@ def run_attempt_task(attempt_id):
     )
 
     # raja api key
-    raja_api_jey = RajaApiKey.objects.last()
+    raja_api_jey = RajaApiKey.objects.select_related("raja_account").last()
 
     # get reservation
     reservation = attempt.reservation
@@ -83,7 +83,7 @@ def run_attempt_task(attempt_id):
         child=reservation.baby_number,
         user_agent=attempt.user_agent,
         raja_api_key=raja_api_jey.api_key,
-        access_token=attempt.access_token,
+        access_token=raja_api_jey.raja_account.access_token,
     )
 
     return asyncio.run(booker.start())

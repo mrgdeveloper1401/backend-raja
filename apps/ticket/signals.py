@@ -35,13 +35,11 @@ def start_reservation(sender, instance, created, **kwargs):
     became_pending = (
         instance.status == ReservationStatus.PENDING
         and getattr(instance, "_previous_status", None) != ReservationStatus.PENDING
-        and not instance.celery_task_id
     )
     if not became_pending:
         return
 
     def enqueue():
-        task = process_reservation_task.delay(instance.reservation_id)
-        ReservationAttempt.objects.filter(pk=instance.pk).update(celery_task_id=task.id)
+        process_reservation_task.delay(instance.reservation_id)
 
     transaction.on_commit(enqueue)

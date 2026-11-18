@@ -21,3 +21,4 @@ class StationAdmin(admin.ModelAdmin):
 class RajaApiKeyAdmin(admin.ModelAdmin):
     list_display = ("id", "api_key", "created_at", "updated_at")
     list_display_links = ("id", "api_key")
+    raw_id_fields = ("raja_account",)
