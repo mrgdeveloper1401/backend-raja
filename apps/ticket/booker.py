@@ -162,12 +162,8 @@ class RajaBooker:
                 await asyncio.sleep(2)
 
                 self.page.on("response", self._capture_api_params)
-                await self._check_local_storage()
 
-                if not self.access_token:
-                    await self._login()
-
-                await self._get_information()
+                await self._login()
 
                 print("fill params ...")
                 await self._fill_params()
@@ -220,7 +216,9 @@ class RajaBooker:
                 await self.account.asave(update_fields=["access_token", "updated_at"])
 
                 await self._get_information()  # get information
+                await human_delay()
                 await self._set_local_storage()  # save into local storage browser
+                await human_delay()
                 print("لاگین با موفقیت انجام شد")
                 return True
             elif response.status_code == 429:
@@ -236,6 +234,7 @@ class RajaBooker:
         if not self.access_token:
             print("⚠️ توکن موجود نیست. ابتدا لاگین میکنیم.")
             await self._login()
+            await human_delay()
 
         token_with_bearer = f"bearer {self.access_token}"
         expiry_time = int((time.time() + 315360000) * 1000)
@@ -247,11 +246,13 @@ class RajaBooker:
             await self.page.local_storage.set_item("AMS", ams_value)
             print("✅ توکن و مقادیر مورد نیاز در Local Storage مرورگر ذخیره شد.")
             all_item = await self.page.local_storage.items()
+            await human_delay()
             print("all item", all_item)
 
             # save local storage
             self.account.local_storage = all_item
             await self.account.asave()
+            await human_delay()
 
         except Exception as e:
             print(f"خطا در ذخیره در Local Storage: {e}")
@@ -273,6 +274,7 @@ class RajaBooker:
 
                 if response.status_code == 200:
                     self.lg_uf = response.json()
+                    await human_delay()
                     print(f"✅ اطلاعات کاربر با موفقیت دریافت شد: {self.lg_uf}")
                     return True
                 elif response.status_code == 429:
@@ -349,7 +351,7 @@ class RajaBooker:
             "Accept": "application/json",
             "User-Agent": self.user_agent,
         }
-        poll_interval = 1
+        poll_interval = 2
 
         while True:
             try:
@@ -381,6 +383,7 @@ class RajaBooker:
                         if response.status_code == 200:
                             data = response.json()
                             trains = data.get("GoTrains", [])
+                            await human_delay()
                             matching_trains = []
 
                             for train in trains:
@@ -475,7 +478,7 @@ class RajaBooker:
                                 print(
                                     f"✅ قطار انتخاب شد: {selected_train['TrainNumber']} - {selected_train['WagonName']}"
                                 )
-
+                                await human_delay()
                                 await self._update_status(
                                     status=ReservationStatus.MATCH_TRAIN,
                                     matching_trains=matching_trains,
@@ -484,6 +487,7 @@ class RajaBooker:
 
                                 # ⭐️ مرحله جدید: کلیک روی قطار در مرورگر
                                 success = await self._click_train_button(selected_train)
+                                await human_delay()
                                 if success:
                                     print(
                                         "🎉 کلیک روی دکمه رزرو انجام شد. رفتن به مرحله بعد..."
@@ -538,6 +542,7 @@ class RajaBooker:
         try:
             print("🔄 رفرش صفحه برای دیدن قطار...")
             await self.page.reload(wait_until="networkidle")
+            await human_delay()
 
             # پیدا کردن کارت قطار بر اساس شماره قطار و نوع واگن
             train_number = train["TrainNumber"]
@@ -547,7 +552,7 @@ class RajaBooker:
             card = self.page.locator(
                 f".train-result:has-text('{train_number}'):has-text('{wagon_name}')"
             ).first
-
+            await human_delay()
             if await card.count() == 0:
                 print(f"⚠️ کارت قطار {train_number} در DOM پیدا نشد.")
                 return False
@@ -558,16 +563,19 @@ class RajaBooker:
             if await book_btn.count() > 0 and await book_btn.is_enabled():
                 print(f"✅ کلیک روی دکمه رزرو برای قطار {train_number}...")
                 await book_btn.click()
+                await human_delay()
 
                 # ⭐️ صبر می‌کنیم تا دکمه "ادامه خرید" در صفحه ظاهر شود
                 print("منتظر ظاهر شدن دکمه ادامه خرید...")
                 continue_btn = self.page.locator("button.btn-success:has-text('ادامه خرید')").first
+                await human_delay()
 
                 # حداکثر 10 ثانیه صبر می‌کنیم تا دکمه ظاهر شود
                 try:
                     await continue_btn.wait_for(state="visible", timeout=10000)
                     print("✅ دکمه ادامه خرید پیدا شد. کلیک می‌کنیم...")
                     await continue_btn.click()
+                    await human_delay()
                 except Exception as e:
                     print(f"⚠️ دکمه ادامه خرید پیدا نشد: {e}")
                     # اگر پیدا نشد، ممکن است سایت مستقیم به صفحه بعد رفته باشد
@@ -739,7 +747,7 @@ class RajaBooker:
 
         # حل کپچا
         # result = await arcaptcha.asolve(
-        #     page=self.page, site_key="t8xr2hpxue", domain="www.raja.ir"
+        #     page=self.page, site="t8xr2hpxue", domain="www.raja.ir"
         # )
         # if result.is_solved:
         #     token = result.response_token
