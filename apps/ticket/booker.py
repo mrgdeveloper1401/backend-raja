@@ -124,8 +124,14 @@ class RajaBooker:
 
                 self.page = await self.context.new_page()
 
+                print("رفتن به صفحه اصلی رجا...")
+                await self.page.goto("https://www.raja.ir/", wait_until="domcontentloaded")
+                await asyncio.sleep(2)
+
                 # ✅ ثبت لیسنر قبل از هر کاری
                 self.page.on("response", self._capture_api_params)
+
+                await self._check_local_storage()
 
                 # check login
                 if not self.access_token:
@@ -135,9 +141,6 @@ class RajaBooker:
 
                 # user info
                 await self._get_information()
-
-                # check local storage
-                await self._check_local_storage()
 
                 # پر کردن فرم جستجو
                 print("fill params ...")
@@ -196,8 +199,9 @@ class RajaBooker:
             return False
 
     async def _check_local_storage(self):
-        access_token = await self.page.local_storage.get("Access_Token")
+        access_token = await self.page.local_storage.get_item("Access_Token")
         if not access_token:
+            print('اکسس توکن موجود نیست لاگین میکنیم')
             await self._login()
         print('اکسس توکن موجود هست', access_token)
 
