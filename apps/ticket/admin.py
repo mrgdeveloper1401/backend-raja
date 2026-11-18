@@ -1,6 +1,8 @@
 import jdatetime
 from django.contrib import admin
+from django.db.models import JSONField
 from django.utils.translation import gettext_lazy as _
+from django_json_widget.widgets import JSONEditorWidget
 
 from .models import (
     Passenger,
@@ -79,6 +81,9 @@ class ReservationAttemptAdmin(admin.ModelAdmin):
     list_per_page = 20
     list_filter = ("created_at",)
     raw_id_fields = ("reservation",)
+    formfield_overrides = {
+        JSONField: {'widget': JSONEditorWidget},
+    }
 
 
 @admin.register(OrderPassenger)
