@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('ticket', '0014_reservationattempt_access_token_and_more'),
+        ("ticket", "0014_reservationattempt_access_token_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='reservationattempt',
-            name='user_agent',
+            model_name="reservationattempt",
+            name="user_agent",
             field=models.CharField(max_length=1024, null=True),
         ),
     ]
