@@ -83,6 +83,7 @@ def run_attempt_task(attempt_id):
         child=reservation.baby_number,
         user_agent=attempt.user_agent,
         raja_api_key=raja_api_jey.api_key,
+        access_token=attempt.access_token,
     )
 
     return asyncio.run(booker.start())

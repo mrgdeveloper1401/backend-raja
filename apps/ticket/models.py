@@ -216,7 +216,7 @@ class ReservationAttempt(TimestampMixin, SoftDeleteMixin):
     )
     captcha_token = models.CharField(max_length=512, blank=True, null=True)
     access_token = models.CharField(max_length=1024, blank=True, null=True)
-    user_agent = models.CharField(max_length=1024, blank=True, null=True)
+    user_agent = models.CharField(max_length=1024, null=True)
 
     class Meta:
         db_table = "reservation_attempts"
