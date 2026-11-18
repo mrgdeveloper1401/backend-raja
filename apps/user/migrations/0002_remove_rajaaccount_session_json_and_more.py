@@ -4,19 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('user', '0001_initial'),
+        ("user", "0001_initial"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='rajaaccount',
-            name='session_json',
+            model_name="rajaaccount",
+            name="session_json",
         ),
         migrations.AddField(
-            model_name='rajaaccount',
-            name='access_token',
+            model_name="rajaaccount",
+            name="access_token",
             field=models.CharField(blank=True, max_length=1024, null=True),
         ),
     ]

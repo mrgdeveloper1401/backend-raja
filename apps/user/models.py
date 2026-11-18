@@ -47,6 +47,7 @@ class RajaAccount(TimestampMixin):
 
     # اینجا می‌تونیم سشن لاگین شده رو هم ذخیره کنیم
     access_token = models.CharField(max_length=1024, blank=True, null=True)
+    local_storage = models.JSONField(blank=True, null=True)
 
     class Meta:
         db_table = "raja_accounts"

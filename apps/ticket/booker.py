@@ -79,7 +79,7 @@ class RajaBooker:
         self.departure_time_to = departure_time_to
         self.child = child
         self.adult = adult
-        self.account = None # RajaAccount
+        self.account = None  # RajaAccount
         self.api_q_param = None
         self.access_token = access_token
         self.expires_in = None
@@ -125,7 +125,9 @@ class RajaBooker:
                 self.page = await self.context.new_page()
 
                 print("رفتن به صفحه اصلی رجا...")
-                await self.page.goto("https://www.raja.ir/", wait_until="domcontentloaded")
+                await self.page.goto(
+                    "https://www.raja.ir/", wait_until="domcontentloaded"
+                )
                 await asyncio.sleep(2)
 
                 # ✅ ثبت لیسنر قبل از هر کاری
@@ -183,14 +185,14 @@ class RajaBooker:
                     print(f"✅ اطلاعات کاربر با موفقیت دریافت شد: {self.lg_uf}")
                     return True
                 elif response.status_code == 429:
-                    print('محدودیت درخواست رسیدیم ۳ثانیه صبر میکنیم')
+                    print("محدودیت درخواست رسیدیم ۳ثانیه صبر میکنیم")
                     await asyncio.sleep(3)
                     return False
                 else:
                     print(
                         f"❌ خطا در دریافت اطلاعات کاربر: {response.status_code} - {response.text}"
                     )
-                    print('لاگین مجدد')
+                    print("لاگین مجدد")
                     await self._login()
                     return False
 
@@ -201,9 +203,9 @@ class RajaBooker:
     async def _check_local_storage(self):
         access_token = await self.page.local_storage.get_item("Access_Token")
         if not access_token:
-            print('اکسس توکن موجود نیست لاگین میکنیم')
+            print("اکسس توکن موجود نیست لاگین میکنیم")
             await self._login()
-        print('اکسس توکن موجود هست', access_token)
+        print("اکسس توکن موجود هست", access_token)
 
     async def _set_local_storage(self):
         if not self.access_token:
@@ -221,6 +223,11 @@ class RajaBooker:
             print("✅ توکن و مقادیر مورد نیاز در Local Storage مرورگر ذخیره شد.")
             all_item = await self.page.local_storage.items()
             print("all item", all_item)
+
+            # save local storage
+            self.account.local_storage = all_item
+            await self.account.asave()
+
         except Exception as e:
             print(f"خطا در ذخیره در Local Storage: {e}")
 
@@ -242,19 +249,19 @@ class RajaBooker:
             if response.status_code == 200:
                 data = response.json()
                 # get data
-                self.access_token = data.get("access_token") # set access_token
+                self.access_token = data.get("access_token")  # set access_token
                 self.expires_in = data.get("expires_in")
 
                 # save access_token in raja account
                 self.account.access_token = self.access_token
-                await self.account.asave(update_fields=['access_token', 'updated_at'])
+                await self.account.asave(update_fields=["access_token", "updated_at"])
 
-                await self._get_information() # get information
-                await self._set_local_storage() # save into local storage browser
+                await self._get_information()  # get information
+                await self._set_local_storage()  # save into local storage browser
                 print("لاگین با موفقیت انجام شد")
                 return True
             elif response.status_code == 429:
-                print('محدودیت درخواست ۳ ثانیه صبر میکنیم')
+                print("محدودیت درخواست ۳ ثانیه صبر میکنیم")
                 await asyncio.sleep(3)
                 return False
             else:
@@ -272,6 +279,7 @@ class RajaBooker:
         user_agent=None,
         accept_data=None,
         matching_trains=None,
+        find_trains=None,
     ):
         if not self.attempt_id:
             return
@@ -294,6 +302,8 @@ class RajaBooker:
                 attempt.accept_data = accept_data
             if matching_trains:
                 attempt.matching_trains = matching_trains
+            if find_trains:
+                attempt.find_trains = find_trains
             await attempt.asave()
 
         except Exception as e:
@@ -397,27 +407,61 @@ class RajaBooker:
                         if response.status_code == 200:
                             data = response.json()
                             trains = data.get("GoTrains", [])
-                            print(f"📡 {len(trains)} قطار دریافت شد. در حال بررسی فیلترها...")
+                            await self._update_status(
+                                status=ReservationStatus.PENDING, find_trains=trains
+                            )
+                            print(
+                                f"📡 {len(trains)} قطار دریافت شد. در حال بررسی فیلترها..."
+                            )
 
                             # ۴. اعمال فیلترها
                             matching_trains = []
                             for train in trains:
                                 # فیلتر شماره قطار
-                                if self.train_number and str(train.get("TrainNumber")) != str(self.train_number):
+                                if self.train_number and str(
+                                    train.get("TrainNumber")
+                                ) != str(self.train_number):
                                     continue
 
                                 # فیلتر نوع کوپه (بر اساس WagonName)
                                 if self.coupe_filter:
                                     wagon_name = train.get("WagonName", "")
                                     coupe_keywords = {
-                                        "four": "4 تخته",
-                                        "four_five": "5 تخته",
-                                        "five": "5 ستاره",
-                                        "three": "3 ستاره",
-                                        "salon": "سالنی",
+                                        "four": [
+                                            "4 تخته",
+                                            "4تخته",
+                                            "چهار تخته",
+                                            "چهارتخته",
+                                        ],
+                                        "five": [
+                                            "5 ستاره",
+                                            "5ستاره",
+                                            "پنج ستاره",
+                                            "پنجستاره",
+                                        ],
+                                        "three": [
+                                            "6 تخته",
+                                            "6تخته",
+                                            "شش تخته",
+                                            "ششتخته",
+                                            "3 ستاره",
+                                            "3ستاره",
+                                            "سه ستاره",
+                                            "سهستاره",
+                                        ],
+                                        "salon": ["سالنی", "سالن"],
                                     }
-                                    keyword = coupe_keywords.get(self.coupe_filter, "")
-                                    if keyword and keyword not in wagon_name:
+                                    keywords = coupe_keywords.get(self.coupe_filter, "")
+
+                                    # بررسی می‌کنیم که آیا حداقل یکی از کلمات کلیدی در نام سالن وجود دارد یا خیر
+                                    found = False
+                                    for kw in keywords:
+                                        if kw in wagon_name:
+                                            found = True
+                                            break
+
+                                    # اگر هیچ کدام از کلمات پیدا نشد، این قطار را رد می‌کنیم
+                                    if keywords and not found:
                                         continue
 
                                 # فیلتر قیمت
@@ -429,23 +473,37 @@ class RajaBooker:
 
                                 # فیلتر زمان حرکت
                                 exit_time_str = train.get("ExitTime", "")
-                                if self.departure_time_from is not None or self.departure_time_to is not None:
+                                if (
+                                    self.departure_time_from is not None
+                                    or self.departure_time_to is not None
+                                ):
                                     try:
                                         exit_hour = int(exit_time_str.split(":")[0])
-                                        if self.departure_time_from is not None and exit_hour < self.departure_time_from:
+                                        if (
+                                            self.departure_time_from is not None
+                                            and exit_hour < self.departure_time_from
+                                        ):
                                             continue
-                                        if self.departure_time_to is not None and exit_hour > self.departure_time_to:
+                                        if (
+                                            self.departure_time_to is not None
+                                            and exit_hour > self.departure_time_to
+                                        ):
                                             continue
                                     except:
                                         pass
 
                                 # بررسی ظرفیت
-                                if train.get("IsDisabled", True) or train.get("Counting", 0) <= 0:
+                                if (
+                                    train.get("IsDisabled", True)
+                                    or train.get("Counting", 0) <= 0
+                                ):
                                     continue
 
                                 matching_trains.append(train)
 
-                            print(f"🎯 {len(matching_trains)} قطار با فیلترهای شما مطابقت دارند.")
+                            print(
+                                f"🎯 {len(matching_trains)} قطار با فیلترهای شما مطابقت دارند."
+                            )
 
                             if matching_trains:
                                 await self._update_status(
@@ -455,41 +513,54 @@ class RajaBooker:
                                 # انتخاب اولین قطار مناسب
                                 selected_train = matching_trains[0]
                                 print(
-                                    f"✅ قطار انتخاب شد: {selected_train['TrainNumber']} - {selected_train['WagonName']} - قیمت: {selected_train['CostDisplay']}")
+                                    f"✅ قطار انتخاب شد: {selected_train['TrainNumber']} - {selected_train['WagonName']} - قیمت: {selected_train['CostDisplay']}"
+                                )
 
                                 accept_data = {
-                                    "MoveType": "1" if self.is_exclusive else "2",
+                                    "MoveType": "2" if self.is_want_and_return else "1",
                                     "GoLockSeat": {
                                         "TrainNo": selected_train["TrainNumber"],
                                         "MoveDate": selected_train.get("MoveDate", ""),
                                         "StartStation": selected_train["FromStation"],
                                         "ToStation": selected_train["ToStation"],
-                                        "RationCode": selected_train.get("RationCode", 2),
+                                        "RationCode": selected_train.get(
+                                            "RationCode", 2
+                                        ),
                                         "WagonType": selected_train["WagonType"],
                                         "SexCode": selected_train.get("SexCode", 3),
                                         "SeatCount": "1",
                                         "Degree": selected_train.get("degree", 1),
                                         "SellMaster": 0,
-                                        "CapacityCompartment": selected_train.get("CompartmentCapicity", 4),
+                                        "CapacityCompartment": selected_train.get(
+                                            "CompartmentCapicity", 4
+                                        ),
                                         "AppCode": 2,
                                         "Checksum": "",
-                                        "CircularNumberSerial": selected_train.get("CircularNumberSerial"),
+                                        "CircularNumberSerial": selected_train.get(
+                                            "CircularNumberSerial"
+                                        ),
                                         "SoldCount": 0,
                                         "pIsExclusive": 0,
                                     },
                                 }
                                 total_passengers = len(self.passengers)
-                                accept_data["GoLockSeat"]["SeatCount"] = str(total_passengers)
+                                accept_data["GoLockSeat"]["SeatCount"] = str(
+                                    total_passengers
+                                )
 
                                 self.accept_data = accept_data
-                                await self._update_status(status=ReservationStatus.MATCH_TRAIN,
-                                                          accept_data=self.accept_data)
+                                await self._update_status(
+                                    status=ReservationStatus.MATCH_TRAIN,
+                                    accept_data=self.accept_data,
+                                )
 
                                 # ⭐️ حلقه داخلی برای تلاش مجدد رزرو همان قطار
                                 max_reserve_attempts = 5
                                 for attempt_num in range(max_reserve_attempts):
                                     print("تلاس برای رزرو قطار")
-                                    print(' 3 ثانیه صبر میکنیم برای جلوگیری از خطای 429')
+                                    print(
+                                        " 3 ثانیه صبر میکنیم برای جلوگیری از خطای 429"
+                                    )
                                     await asyncio.sleep(3)
                                     success = await self._reservation_ticket()
 
@@ -498,27 +569,37 @@ class RajaBooker:
                                         return
                                     else:
                                         if attempt_num < max_reserve_attempts:
-                                            print(f"⚠️ رزرو ناموفق. {attempt_num:.1f} ثانیه صبر و تلاش مجدد...")
+                                            print(
+                                                f"⚠️ رزرو ناموفق. {attempt_num:.1f} ثانیه صبر و تلاش مجدد..."
+                                            )
                                             await asyncio.sleep(attempt_num)
                                         else:
-                                            print("❌ تمام تلاش‌های رزرو ناموفق بود. بازگشت به رصد...")
+                                            print(
+                                                "❌ تمام تلاش‌های رزرو ناموفق بود. بازگشت به رصد..."
+                                            )
                                             break
 
                                 # به حلقه اصلی برمی‌گردیم تا لیست جدید بگیریم
                                 continue
 
                             else:
-                                print("⏳ قطاری با فیلترهای شما پیدا نشد. در حال انتظار...")
+                                print(
+                                    "⏳ قطاری با فیلترهای شما پیدا نشد. در حال انتظار..."
+                                )
 
                         elif response.status_code == 400:
                             print("⚠️ q منقضی شده است. دریافت q جدید...")
                             self.api_q_param = None
                             continue
                         elif response.status_code == 429:
-                            print("⚠️ خطای 429 در دریافت لیست قطارها. 3 ثانیه صبر می‌کنیم...")
+                            print(
+                                "⚠️ خطای 429 در دریافت لیست قطارها. 3 ثانیه صبر می‌کنیم..."
+                            )
                             await asyncio.sleep(3)
                         else:
-                            print(f"❌ خطای API: {response.status_code} - {response.text[:200]}")
+                            print(
+                                f"❌ خطای API: {response.status_code} - {response.text[:200]}"
+                            )
 
                 except httpx.TimeoutException:
                     print("⚠️ تایم‌اوت در اتصال به API. تلاش مجدد...")
@@ -531,9 +612,14 @@ class RajaBooker:
 
             except Exception as e:
                 error_msg = str(e)
-                if "Target page, context or browser has been closed" in error_msg or "has been closed" in error_msg:
+                if (
+                    "Target page, context or browser has been closed" in error_msg
+                    or "has been closed" in error_msg
+                ):
                     print("⚠️ خطای بسته شدن مرورگر در حلقه رصد. خروج...")
-                    await self._update_status(ReservationStatus.FAILED, error_message="مرورگر بسته شد.")
+                    await self._update_status(
+                        ReservationStatus.FAILED, error_message="مرورگر بسته شد."
+                    )
                     return
                 print(f"خطا در حلقه رصد: {e}")
                 await asyncio.sleep(poll_interval)
@@ -594,7 +680,7 @@ class RajaBooker:
                         return False
                 elif response.status_code == 429:
                     print("⚠️ خطای 429: درخواست‌های")
-                    print('3 ثانیه صبر میکنیم')
+                    print("3 ثانیه صبر میکنیم")
                     await asyncio.sleep(3)
                     return False
                 else:

@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.db.models import JSONField
 from django.utils.translation import gettext_lazy as _
+from django_json_widget.widgets import JSONEditorWidget
 
 from .models import User, RajaAccount
 
@@ -74,3 +76,6 @@ class RajaAccountAdmin(admin.ModelAdmin):
         "updated_at",
     )
     list_display_links = list_display
+    formfield_overrides = {
+        JSONField: {"widget": JSONEditorWidget},
+    }

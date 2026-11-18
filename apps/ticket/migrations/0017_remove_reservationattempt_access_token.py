@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('ticket', '0016_reservationattempt_accept_data_and_more'),
+        ("ticket", "0016_reservationattempt_accept_data_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='reservationattempt',
-            name='access_token',
+            model_name="reservationattempt",
+            name="access_token",
         ),
     ]

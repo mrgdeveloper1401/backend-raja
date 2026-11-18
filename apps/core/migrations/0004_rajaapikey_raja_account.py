@@ -5,16 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0003_alter_rajaapikey_options'),
-        ('user', '0002_remove_rajaaccount_session_json_and_more'),
+        ("core", "0003_alter_rajaapikey_options"),
+        ("user", "0002_remove_rajaaccount_session_json_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='rajaapikey',
-            name='raja_account',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='api_keys', to='user.rajaaccount'),
+            model_name="rajaapikey",
+            name="raja_account",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="api_keys",
+                to="user.rajaaccount",
+            ),
         ),
     ]

@@ -4,25 +4,37 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('ticket', '0015_alter_reservationattempt_user_agent'),
+        ("ticket", "0015_alter_reservationattempt_user_agent"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='reservationattempt',
-            name='accept_data',
+            model_name="reservationattempt",
+            name="accept_data",
             field=models.JSONField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='reservationattempt',
-            name='matching_trains',
+            model_name="reservationattempt",
+            name="matching_trains",
             field=models.JSONField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='reservationattempt',
-            name='status',
-            field=models.CharField(choices=[('waiting_start', 'در انتظار شروع'), ('pending', 'انتظار'), ('monitoring', 'در حال رصد'), ('redirect_gateway', 'هدایت به درگاه پرداخت'), ('failed', 'ناموفق'), ('captcha', 'حل کپچا'), ('match_train', 'قطارهای یافت شده')], db_default='waiting_start', default='waiting_start', max_length=20),
+            model_name="reservationattempt",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("waiting_start", "در انتظار شروع"),
+                    ("pending", "انتظار"),
+                    ("monitoring", "در حال رصد"),
+                    ("redirect_gateway", "هدایت به درگاه پرداخت"),
+                    ("failed", "ناموفق"),
+                    ("captcha", "حل کپچا"),
+                    ("match_train", "قطارهای یافت شده"),
+                ],
+                db_default="waiting_start",
+                default="waiting_start",
+                max_length=20,
+            ),
         ),
     ]

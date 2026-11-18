@@ -66,12 +66,18 @@ class ReservationAdmin(admin.ModelAdmin):
         "order_id",
         "raja_account_id",
         "is_exclusive",
-        "created_at",
-        "updated_at",
+        "departure_time_from",
+        "departure_time_to",
+        "from_price",
+        "to_price",
+        "train_number",
+        "adult_number",
+        "baby_number",
+        "coupe_type",
     )
     raw_id_fields = ("order", "raja_account")
     list_display_links = list_display
-    list_filter = ("is_exclusive", "created_at")
+    list_filter = ("is_exclusive", "coupe_type")
 
 
 @admin.register(ReservationAttempt)
@@ -82,7 +88,7 @@ class ReservationAttemptAdmin(admin.ModelAdmin):
     list_filter = ("created_at",)
     raw_id_fields = ("reservation",)
     formfield_overrides = {
-        JSONField: {'widget': JSONEditorWidget},
+        JSONField: {"widget": JSONEditorWidget},
     }
 
 

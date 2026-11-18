@@ -55,7 +55,13 @@ class Station(models.Model):
 
 class RajaApiKey(TimestampMixin, SoftDeleteMixin):
     # TODO, when clean migration remove blank and null
-    raja_account = models.ForeignKey("user.RajaAccount", on_delete=models.CASCADE, related_name="api_keys", null=True, blank=True)
+    raja_account = models.ForeignKey(
+        "user.RajaAccount",
+        on_delete=models.CASCADE,
+        related_name="api_keys",
+        null=True,
+        blank=True,
+    )
     api_key = models.CharField(max_length=1024)
 
     class Meta:
