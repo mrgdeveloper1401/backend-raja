@@ -15,7 +15,7 @@ class ReservationStatus(models.TextChoices):
     REDIRECT_GATEWAY = "redirect_gateway", _("هدایت به درگاه پرداخت")
     FAILED = "failed", _("ناموفق")
     CAPTCHA = "captcha", _("حل کپچا")
-    MACH_TRAIN = 'match_train', _("قطارهای یافت شده")
+    MATCH_TRAIN = 'match_train', _("قطارهای یافت شده")
 
 class RestitutionEnum(models.TextChoices):
     SUCCESS = "success", _("موفق")

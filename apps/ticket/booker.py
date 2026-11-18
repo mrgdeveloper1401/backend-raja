@@ -360,7 +360,7 @@ class RajaBooker:
                 # check and get queue
                 if not self.api_q_param:
                     print("🔄 در حال دریافت q جدید از مرورگر...")
-                    self.api_q_param = None  # ریست کردن برای دریافت مجدد
+                    self.api_q_param = None
                     await self.page.reload(wait_until="domcontentloaded")
 
                     for _ in range(20):
@@ -383,23 +383,18 @@ class RajaBooker:
                         if response.status_code == 200:
                             data = response.json()
                             trains = data.get("GoTrains", [])
-                            print(
-                                f"📡 {len(trains)} قطار دریافت شد. در حال بررسی فیلترها..."
-                            )
+                            print(f"📡 {len(trains)} قطار دریافت شد. در حال بررسی فیلترها...")
 
                             # ۴. اعمال فیلترها
                             matching_trains = []
                             for train in trains:
                                 # فیلتر شماره قطار
-                                if self.train_number and str(
-                                    train.get("TrainNumber")
-                                ) != str(self.train_number):
+                                if self.train_number and str(train.get("TrainNumber")) != str(self.train_number):
                                     continue
 
                                 # فیلتر نوع کوپه (بر اساس WagonName)
                                 if self.coupe_filter:
                                     wagon_name = train.get("WagonName", "")
-                                    # نگاشت مقادیر به کلمات کلیدی موجود در WagonName
                                     coupe_keywords = {
                                         "four": "4 تخته",
                                         "four_five": "5 تخته",
@@ -411,144 +406,121 @@ class RajaBooker:
                                     if keyword and keyword not in wagon_name:
                                         continue
 
-                                # فیلتر قیمت (Cost به ریال است)
+                                # فیلتر قیمت
                                 cost = train.get("Cost", 0)
-                                # کاربر قیمت را به هزار تومان وارد کرده (مثلا 1500 = 1,500,000 تومان = 15,000,000 ریال)
                                 if self.from_price and cost < (self.from_price * 10000):
                                     continue
                                 if self.to_price and cost > (self.to_price * 10000):
                                     continue
 
-                                # فیلتر زمان حرکت (ExitTime به فرمت "HH:MM")
+                                # فیلتر زمان حرکت
                                 exit_time_str = train.get("ExitTime", "")
-                                if (
-                                    self.departure_time_from is not None
-                                    or self.departure_time_to is not None
-                                ):
+                                if self.departure_time_from is not None or self.departure_time_to is not None:
                                     try:
                                         exit_hour = int(exit_time_str.split(":")[0])
-                                        if (
-                                            self.departure_time_from is not None
-                                            and exit_hour < self.departure_time_from
-                                        ):
+                                        if self.departure_time_from is not None and exit_hour < self.departure_time_from:
                                             continue
-                                        if (
-                                            self.departure_time_to is not None
-                                            and exit_hour > self.departure_time_to
-                                        ):
+                                        if self.departure_time_to is not None and exit_hour > self.departure_time_to:
                                             continue
                                     except:
                                         pass
 
-                                # بررسی ظرفیت (باید بلیط موجود باشد)
-                                if (
-                                    train.get("IsDisabled", True)
-                                    or train.get("Counting", 0) <= 0
-                                ):
+                                # بررسی ظرفیت
+                                if train.get("IsDisabled", True) or train.get("Counting", 0) <= 0:
                                     continue
 
                                 matching_trains.append(train)
 
-                            print(
-                                f"🎯 {len(matching_trains)} قطار با فیلترهای شما مطابقت دارند."
-                            )
+                            print(f"🎯 {len(matching_trains)} قطار با فیلترهای شما مطابقت دارند.")
+
                             if matching_trains:
-                                await self._update_status(status=ReservationStatus.MACH_TRAIN, matching_trains=matching_trains)
+                                await self._update_status(
+                                    status=ReservationStatus.MATCH_TRAIN,
+                                    matching_trains=matching_trains,
+                                )
                                 # انتخاب اولین قطار مناسب
                                 selected_train = matching_trains[0]
                                 print(
-                                    f"✅ قطار انتخاب شد: {selected_train['TrainNumber']} - {selected_train['WagonName']} - قیمت: {selected_train['CostDisplay']}"
-                                )
+                                    f"✅ قطار انتخاب شد: {selected_train['TrainNumber']} - {selected_train['WagonName']} - قیمت: {selected_train['CostDisplay']}")
 
                                 accept_data = {
-                                    "MoveType": "1"
-                                    if self.is_exclusive
-                                    else "2",  # 1 برای تک سفر، 2 برای رفت و برگشت
+                                    "MoveType": "1" if self.is_exclusive else "2",
                                     "GoLockSeat": {
                                         "TrainNo": selected_train["TrainNumber"],
-                                        "MoveDate": selected_train.get(
-                                            "MoveDate", ""
-                                        ),  # تاریخ میلادی
+                                        "MoveDate": selected_train.get("MoveDate", ""),
                                         "StartStation": selected_train["FromStation"],
                                         "ToStation": selected_train["ToStation"],
-                                        "RationCode": selected_train.get(
-                                            "RationCode", 2
-                                        ),
+                                        "RationCode": selected_train.get("RationCode", 2),
                                         "WagonType": selected_train["WagonType"],
                                         "SexCode": selected_train.get("SexCode", 3),
-                                        "SeatCount": "1",  # تعداد مسافران
+                                        "SeatCount": "1",
                                         "Degree": selected_train.get("degree", 1),
                                         "SellMaster": 0,
-                                        "CapacityCompartment": selected_train.get(
-                                            "CompartmentCapicity", 4
-                                        ),
+                                        "CapacityCompartment": selected_train.get("CompartmentCapicity", 4),
                                         "AppCode": 2,
                                         "Checksum": "",
-                                        "CircolarNumberSerial": selected_train.get(
-                                            "CircularNumberSerial"
-                                        ),
+                                        "CircularNumberSerial": selected_train.get("CircularNumberSerial"),
                                         "SoldCount": 0,
                                         "pIsExclusive": 0,
                                     },
                                 }
-
-                                # اگر تعداد مسافران بیشتر از 1 است، SeatCount را تغییر بده
                                 total_passengers = len(self.passengers)
-                                accept_data["GoLockSeat"]["SeatCount"] = str(
-                                    total_passengers
-                                )
+                                accept_data["GoLockSeat"]["SeatCount"] = str(total_passengers)
 
                                 self.accept_data = accept_data
-                                await self._update_status(status=ReservationStatus.MACH_TRAIN, accept_data=self.accept_data)
-                                # ۶. تلاش برای رزرو
-                                print("🔒 در حال تلاش برای رزرو...")
-                                success = await self._reservation_ticket()
+                                await self._update_status(status=ReservationStatus.MATCH_TRAIN,
+                                                          accept_data=self.accept_data)
 
-                                if success:
-                                    print("🎉 رزرو با موفقیت انجام شد!")
-                                    # لینک پرداخت را از پاسخ بگیرید
-                                    return
-                                else:
-                                    print("⚠️ رزرو ناموفق بود. تلاش مجدد...")
-                                    await asyncio.sleep(0.5)
-                                    continue
+                                # ⭐️ حلقه داخلی برای تلاش مجدد رزرو همان قطار
+                                max_reserve_attempts = 5
+                                for attempt_num in range(1, max_reserve_attempts + 1):
+                                    print(f"🔒 تلاش {attempt_num} برای رزرو قطار {selected_train['TrainNumber']}...")
+                                    success = await self._reservation_ticket()
+
+                                    if success:
+                                        print("🎉 رزرو با موفقیت انجام شد!")
+                                        return
+                                    else:
+                                        if attempt_num < max_reserve_attempts:
+                                            # اگر خطا 429 بود، بیشتر صبر کن
+                                            # یا یک تاخیر تصادفی بین 1 ثانیه
+                                            wait_time = 1
+                                            print(f"⚠️ رزرو ناموفق. {wait_time:.1f} ثانیه صبر و تلاش مجدد...")
+                                            await asyncio.sleep(wait_time)
+                                        else:
+                                            print("❌ تمام تلاش‌های رزرو ناموفق بود. بازگشت به رصد...")
+                                            break  # از حلقه داخلی خارج شو و به حلقه اصلی برگرد
+
+                                # به حلقه اصلی برمی‌گردیم تا لیست جدید بگیریم
+                                continue
 
                             else:
-                                print(
-                                    "⏳ قطاری با فیلترهای شما پیدا نشد. در حال انتظار..."
-                                )
+                                print("⏳ قطاری با فیلترهای شما پیدا نشد. در حال انتظار...")
 
                         elif response.status_code == 400:
                             print("⚠️ q منقضی شده است. دریافت q جدید...")
                             self.api_q_param = None
                             continue
                         elif response.status_code == 429:
-                            print(
-                                "⚠️ خطای 429 در دریافت لیست قطارها. 3 ثانیه صبر می‌کنیم..."
-                            )
-                            await asyncio.sleep(3)
+                            print("⚠️ خطای 429 در دریافت لیست قطارها. 10 ثانیه صبر می‌کنیم...")
+                            await asyncio.sleep(10)
                         else:
-                            print(
-                                f"❌ خطای API: {response.status_code} - {response.text[:200]}"
-                            )
+                            print(f"❌ خطای API: {response.status_code} - {response.text[:200]}")
 
                 except httpx.TimeoutException:
                     print("⚠️ تایم‌اوت در اتصال به API. تلاش مجدد...")
+                    await asyncio.sleep(2)
                 except Exception as e:
                     print(f"⚠️ خطا در درخواست API: {e}")
+                    await asyncio.sleep(2)
 
                 await asyncio.sleep(poll_interval)
 
             except Exception as e:
                 error_msg = str(e)
-                if (
-                    "Target page, context or browser has been closed" in error_msg
-                    or "has been closed" in error_msg
-                ):
+                if "Target page, context or browser has been closed" in error_msg or "has been closed" in error_msg:
                     print("⚠️ خطای بسته شدن مرورگر در حلقه رصد. خروج...")
-                    await self._update_status(
-                        ReservationStatus.FAILED, error_message="مرورگر بسته شد."
-                    )
+                    await self._update_status(ReservationStatus.FAILED, error_message="مرورگر بسته شد.")
                     return
                 print(f"خطا در حلقه رصد: {e}")
                 await asyncio.sleep(poll_interval)
