@@ -772,7 +772,7 @@ class RajaBooker:
         await captcha_box.click()
 
         print("منتظر حل شدن کپچا...")
-        await self._human_delay(1, 2)
+        await human_delay(1, 2)
 
         # حل کپچا
         result = await arcaptcha.asolve(
