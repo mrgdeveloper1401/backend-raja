@@ -355,7 +355,6 @@ class RajaBooker:
         print(
             f"attempt={self.attempt_id} "
             f"departure_time_slots={self.departure_time_slots!r} "
-            f"type={type(self.departure_time_slots).__name__}"
             f"departure_time_slots={self.departure_time_slots!r}"
         )
         headers = {
@@ -485,6 +484,15 @@ class RajaBooker:
                                     or train.get("Counting", 0) <= 0
                                 ):
                                     continue
+
+                                # کوپه دربست
+                                available_seats = train.get("Counting")
+                                if self.is_exclusive:
+                                    if self.coupe_filter == "four" and available_seats < 4:
+                                        continue
+                                    if self.coupe_filter == "three" and available_seats < 6:
+                                        continue
+
                                 matching_trains.append(train)
 
                             print(
