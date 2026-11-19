@@ -1,3 +1,4 @@
+from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -22,6 +23,14 @@ class RestitutionEnum(models.TextChoices):
     SUCCESS = "success", _("موفق")
     FAILED = "failed", _("ناموفق")
     PENDING = "pending", _("انتظار")
+
+
+class DepartureTimeSlot(models.IntegerChoices):
+    H00_06 = 0, _("۰۰ تا ۰۶")
+    H06_12 = 6, _("۰۶ تا ۱۲")
+    H12_18 = 12, _("۱۲ تا ۱۸")
+    H18_21 = 18, _("۱۸ تا ۲۱")
+    H21_24 = 21, _("۲۱ تا ۲۴")
 
 
 class Passenger(TimestampMixin, SoftDeleteMixin):
@@ -166,17 +175,14 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
     )
     is_exclusive = models.BooleanField(_("کوپه دربست"), default=False, db_default=False)
     # زمان حرکت (قطار رفت)
-    departure_time_from = models.PositiveSmallIntegerField(
-        _("زمان حرکت (از)"),
+    departure_time_slots = ArrayField(
+        base_field=models.PositiveSmallIntegerField(
+            choices=DepartureTimeSlot.choices,
+        ),
+        verbose_name=_("بازه‌های ساعت حرکت"),
+        default=list,
         blank=True,
-        null=True,
-        help_text=_("بازه زمانی حضور قطار در ایستگاه مبدا (شروع)"),
-    )
-    departure_time_to = models.PositiveSmallIntegerField(
-        _("زمان حرکت (تا)"),
-        blank=True,
-        null=True,
-        help_text=_("بازه زمانی حضور قطار در ایستگاه مبدا (پایان)"),
+        help_text=_("بدون انتخاب، همهٔ ساعات مجاز هستند."),
     )
 
     from_price = models.DecimalField(
@@ -185,8 +191,12 @@ class Reservation(TimestampMixin, SoftDeleteMixin):
     to_price = models.DecimalField(
         blank=True, null=True, max_digits=10, decimal_places=2
     )
-    train_number = models.CharField(
-        _("شماره قطار"), blank=True, max_length=10, null=True
+    train_number = ArrayField(
+        default=list,
+        blank=True,
+        null=True,
+        help_text=_("لیستی از شماره قطارهای مجاز برای رزرو"),
+        base_field=models.CharField(max_length=10),
     )
     adult_number = models.PositiveSmallIntegerField(default=1, db_default=1)
     baby_number = models.PositiveSmallIntegerField(default=0, db_default=0)

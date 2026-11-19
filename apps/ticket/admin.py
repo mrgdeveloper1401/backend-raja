@@ -66,8 +66,7 @@ class ReservationAdmin(admin.ModelAdmin):
         "order_id",
         "raja_account_id",
         "is_exclusive",
-        "departure_time_from",
-        "departure_time_to",
+        "departure_time_slots",
         "from_price",
         "to_price",
         "train_number",
@@ -78,6 +77,9 @@ class ReservationAdmin(admin.ModelAdmin):
     raw_id_fields = ("order", "raja_account")
     list_display_links = list_display
     list_filter = ("is_exclusive", "coupe_type")
+    formfield_overrides = {
+        JSONField: {"widget": JSONEditorWidget},
+    }
 
 
 @admin.register(ReservationAttempt)

@@ -18,6 +18,14 @@ from apps.user.models import RajaAccount
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+DEPARTURE_SLOT_ENDS = {
+    0: 6,
+    6: 12,
+    12: 18,
+    18: 21,
+    21: 24,
+}
+
 
 async def human_delay(min_ms=0.1, max_ms=0.2, default=None):
     if default:
@@ -48,8 +56,7 @@ class RajaBooker:
         from_price=None,
         to_price=None,
         train_number=None,
-        departure_time_from=None,
-        departure_time_to=None,
+        departure_time_slots=None,
         adult=None,
         child=None,
         user_agent=None,
@@ -74,8 +81,7 @@ class RajaBooker:
         self.from_price = from_price
         self.to_price = to_price
         self.train_number = train_number
-        self.departure_time_from = departure_time_from
-        self.departure_time_to = departure_time_to
+        self.departure_time_slots = departure_time_slots
         self.child = child
         self.adult = adult
         self.account = None
@@ -346,12 +352,18 @@ class RajaBooker:
 
     async def _monitor_and_book(self):
         await self._update_status(ReservationStatus.MONITORING)
+        print(
+            f"attempt={self.attempt_id} "
+            f"departure_time_slots={self.departure_time_slots!r} "
+            f"type={type(self.departure_time_slots).__name__}"
+            f"departure_time_slots={self.departure_time_slots!r}"
+        )
         headers = {
             "Api-Key": self.raja_api_key,
             "Accept": "application/json",
             "User-Agent": self.user_agent,
         }
-        poll_interval = 2
+        poll_interval = 1
 
         while True:
             try:
@@ -388,10 +400,18 @@ class RajaBooker:
 
                             for train in trains:
                                 # فیلترها (شماره قطار، نوع کوپه، قیمت، زمان، ظرفیت)
-                                if self.train_number and str(
-                                    train.get("TrainNumber")
-                                ) != str(self.train_number):
+
+                                # train number
+                                print(self.train_number)
+                                print(f"server train_number {train.get('TrainNumber')}")
+                                if (
+                                    self.train_number
+                                    and str(train.get("TrainNumber"))
+                                    not in self.train_number
+                                ):
                                     continue
+
+                                # coupe filter
                                 if self.coupe_filter:
                                     wagon_name = train.get("WagonName", "")
                                     coupe_keywords = {
@@ -423,38 +443,43 @@ class RajaBooker:
                                         ],
                                         "salon": ["سالنی", "سالن", "اتوبوسي"],
                                     }
-                                    if self.coupe_filter == 'four':
-                                        if "سالنی" in wagon_name or "سالن" in wagon_name:
+                                    if self.coupe_filter == "four":
+                                        if (
+                                            "سالنی" in wagon_name
+                                            or "سالن" in wagon_name
+                                        ):
                                             continue
                                     keywords = coupe_keywords.get(self.coupe_filter, [])
                                     if keywords and not any(
                                         kw in wagon_name for kw in keywords
                                     ):
                                         continue
+
+                                # price
                                 cost = train.get("Cost", 0)
-                                if self.from_price and cost < (self.from_price * 10000):
+                                if self.from_price and cost < (self.from_price * 10):
                                     continue
-                                if self.to_price and cost > (self.to_price * 10000):
+                                if self.to_price and cost > (self.to_price * 10):
                                     continue
-                                exit_time_str = train.get("ExitTime", "")
-                                if (
-                                    self.departure_time_from is not None
-                                    or self.departure_time_to is not None
-                                ):
+
+                                # move time
+                                if self.departure_time_slots:
                                     try:
-                                        exit_hour = int(exit_time_str.split(":")[0])
-                                        if (
-                                            self.departure_time_from is not None
-                                            and exit_hour < self.departure_time_from
-                                        ):
-                                            continue
-                                        if (
-                                            self.departure_time_to is not None
-                                            and exit_hour > self.departure_time_to
-                                        ):
-                                            continue
-                                    except:
-                                        pass
+                                        hour_str, minute_str = train["ExitTime"].strip().split(":")
+                                        exit_hour = int(hour_str)
+                                        exit_minute = int(minute_str)
+                                    except (KeyError, AttributeError, ValueError):
+                                        continue
+
+                                    if not (0 <= exit_hour < 24 and 0 <= exit_minute < 60):
+                                        continue
+
+                                    if not any(
+                                            start_hour <= exit_hour < DEPARTURE_SLOT_ENDS[start_hour]
+                                            for start_hour in self.departure_time_slots
+                                            if start_hour in DEPARTURE_SLOT_ENDS
+                                    ):
+                                        continue
                                 if (
                                     train.get("IsDisabled", True)
                                     or train.get("Counting", 0) <= 0
@@ -470,8 +495,11 @@ class RajaBooker:
                                 selected_train = matching_trains[0]
                                 self.selected_train = selected_train
                                 print(
-                                    f"✅ قطار انتخاب شد: {selected_train['TrainNumber']} - {selected_train['WagonName']}"
+                                    f"attempt={self.attempt_id} "
+                                    f"selected_train={selected_train.get('TrainNumber')!r} "
+                                    f"exit_time={selected_train.get('ExitTime')!r}"
                                 )
+
                                 await human_delay()
                                 await self._update_status(
                                     status=ReservationStatus.MATCH_TRAIN,
@@ -561,7 +589,9 @@ class RajaBooker:
 
                 # ⭐️ صبر می‌کنیم تا دکمه "ادامه خرید" در صفحه ظاهر شود
                 print("منتظر ظاهر شدن دکمه ادامه خرید...")
-                continue_btn = self.page.locator("button.btn-success:has-text('ادامه خرید')").first
+                continue_btn = self.page.locator(
+                    "button.btn-success:has-text('ادامه خرید')"
+                ).first
                 await human_delay()
 
                 # حداکثر 10 ثانیه صبر می‌کنیم تا دکمه ظاهر شود
@@ -593,7 +623,7 @@ class RajaBooker:
 
         # منتظر می‌مانیم تا فرم مسافران لود شود
         await self.page.get_by_text("کد ملی/شماره پاسپورت").first.wait_for(
-            state="visible", timeout=15000
+            state="visible", timeout=25000
         )
         print("فرم مسافران با موفقیت لود شد.")
 
@@ -724,20 +754,20 @@ class RajaBooker:
 
         await human_delay()
 
-        print("کلیک روی دکمه پرداخت اولیه...")
-        await self.page.locator("button.btn-success:has-text('پرداخت')").click()
-        await human_delay()
+        # print("کلیک روی دکمه پرداخت اولیه...")
+        # await self.page.locator("button.btn-success:has-text('پرداخت')").click()
+        # await human_delay()
 
-        print("در حال منتظر ماندن برای لود شدن کپچا...")
+        # print("در حال منتظر ماندن برای لود شدن کپچا...")
         # کلیک بر روی دکمه من ربات نیستم
-        captcha_box = self.page.locator("#input-checkbox")
-        await captcha_box.wait_for(state="visible", timeout=15000)
-        await human_delay()
+        # captcha_box = self.page.locator("#input-checkbox")
+        # await captcha_box.wait_for(state="visible", timeout=25000)
+        # await human_delay()
 
-        await captcha_box.click()
+        # await captcha_box.click()
 
-        print("منتظر حل شدن کپچا...")
-        await human_delay(1, 2)
+        # print("منتظر حل شدن کپچا...")
+        # await human_delay(1, 2)
 
         # حل کپچا
         # result = await arcaptcha.asolve(

@@ -12,6 +12,7 @@ from apps.ticket.models import (
     OrderPassenger,
     ReservationStatus,
 )
+from apps.ticket.tasks import run_attempt_task
 
 
 async def create_passenger_selector(data: dict) -> Passenger:
@@ -62,8 +63,7 @@ async def create_order_with_reservation_selector(data: dict):
                 raja_account_id=data["raja_account_id"],
                 coupe_type=data["coupe_type"],
                 is_exclusive=data["is_exclusive"],
-                departure_time_from=data["departure_time_from"],
-                departure_time_to=data["departure_time_to"],
+                departure_time_slots=data["departure_time_slots"],
                 from_price=data["from_price"],
                 to_price=data["to_price"],
                 train_number=data["train_number"],
@@ -79,10 +79,16 @@ async def create_order_with_reservation_selector(data: dict):
 
 async def delete_order_services(order_id: int):
     try:
-        order = await ReservationAttempt.objects.aget(id=order_id)
+        attempt = await ReservationAttempt.objects.aget(id=order_id)
     except ReservationAttempt.DoesNotExist:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND)
-    await order.adelete()
+    task_id = attempt.celery_task_id
+    await attempt.adelete()
+
+    if task_id:
+        await sync_to_async(
+            run_attempt_task.app.control.revoke, thread_sensitive=False
+        )(task_id, terminate=True, signal="SIGTERM")
 
 
 async def update_order_and_restart_selector(order_id: int, data: dict):
@@ -153,10 +159,8 @@ async def update_order_and_restart_selector(order_id: int, data: dict):
                 reservation.coupe_type = data["coupe_type"]
             if "is_exclusive" in data:
                 reservation.is_exclusive = data["is_exclusive"]
-            if "departure_time_from" in data:
-                reservation.departure_time_from = data["departure_time_from"]
-            if "departure_time_to" in data:
-                reservation.departure_time_to = data["departure_time_to"]
+            if "departure_time_slots" in data:
+                reservation.departure_time_slots = data["departure_time_slots"]
             if "from_price" in data:
                 reservation.from_price = data["from_price"]
             if "to_price" in data:

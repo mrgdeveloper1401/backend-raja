@@ -84,6 +84,7 @@ def run_attempt_task(attempt_id):
         user_agent=attempt.user_agent,
         raja_api_key=raja_api_jey.api_key,
         access_token=raja_api_jey.raja_account.access_token,
+        departure_time_slots=reservation.departure_time_slots
     )
 
     return asyncio.run(booker.start())

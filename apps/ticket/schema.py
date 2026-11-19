@@ -47,12 +47,11 @@ class OrderListSchema(Serializer):
     is_exclusive: bool
     adult_number: int
     baby_number: int
-    departure_time_from: int | None = None
-    departure_time_to: int | None = None
+    departure_time_slots: list[int] | None = None
     to_date: Optional[date] = None
     from_price: Decimal | None = None
     to_price: Decimal | None = None
-    train_number: str | None = None
+    train_number: list[str] | None = None
     coupe_type: Optional[str] = None
 
 
@@ -109,13 +108,12 @@ class OrderDetailSchema(Serializer):
     trip_type: str  # یا Literal
     to_price: Optional[Decimal]
     from_price: Optional[Decimal]
-    train_number: Optional[str]
-    departure_time_from: Optional[int]
-    departure_time_to: Optional[int]
+    train_number: Optional[list[str]]
     adult_number: int
     baby_number: int
-    coupe_type: Optional[str] = None
     passengers: list[PassengerDetailSchema]
+    coupe_type: Optional[str] = None
+    departure_time_slots: list[int] | None = None
 
 
 class PassengerUpdateSchema(Serializer):
@@ -159,16 +157,15 @@ class OrderCreateSchema(Serializer):
     passengers: List[OrderCreatePassengerSchema]
     raja_account_id: int | str
     is_exclusive: bool
-    departure_time_from: int
-    departure_time_to: int
     adult_number: int
     baby_number: int
     phone: str
     to_date: Union[str, None] = None
     from_price: Decimal | None = None
     to_price: Decimal | None = None
-    train_number: str | None = None
+    train_number: list[str] | None = None
     coupe_type: Optional[str] = None
+    departure_time_slots: List[int] | None = None
 
 
 class RajaAccountOptionSchema(Serializer):
@@ -189,7 +186,7 @@ class DashboardChartStatusSchema(Serializer):
 class RestitutionSchema(Serializer):
     serial_number: str
     phone: str
-    train_number: str
+    train_number: list[str]
     hall_number: str
     raja_account_id: int
     status: Literal["success", "failed", "pending"] = "pending"
@@ -199,7 +196,7 @@ class RestitutionResponseSchema(Serializer):
     id: int
     serial_number: str
     phone: str
-    train_number: str
+    train_number: list[str]
     hall_number: str
     created_at: datetime
     updated_at: datetime
@@ -222,30 +219,22 @@ class OrderUpdatePassengerSchema(Serializer):
 
 
 class OrderUpdateSchema(Serializer):
-    # فیلدهای سفارش
+    departure_time_slots: list[int] | None = None
     origin: Optional[str] = None
     destination: Optional[str] = None
     travel_date: Optional[date] = None
     to_date: Optional[date] = None
     passenger_type: Optional[PassengerTypeEnum] = None
     trip_type: Optional[TripTypeEnum] = None
-
-    # فیلدهای رزرو
     raja_account_id: Optional[int] = None
     coupe_type: Optional[str] = None
     is_exclusive: Optional[bool] = None
-    departure_time_from: Optional[int] = None
-    departure_time_to: Optional[int] = None
     from_price: Optional[Decimal] = None
     to_price: Optional[Decimal] = None
-    train_number: Optional[str] = None
+    train_number: Optional[list[str]] = None
     salon: Optional[str] = None
     phone: Optional[str] = None
     adult_number: Optional[int] = None
     baby_number: Optional[int] = None
-
-    # لیست مسافران جدید (اختیاری)
     passengers: Optional[List[OrderUpdatePassengerSchema]] = None
-
-    # وضعیت و شروع مجدد
     status: Optional[str] = None

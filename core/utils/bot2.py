@@ -49,8 +49,7 @@ class RajaBooker:
         from_price=None,
         to_price=None,
         train_number=None,
-        departure_time_from=None,
-        departure_time_to=None,
+        departure_time_slots=None,
         adult=None,
         child=None,
         user_agent=None,
@@ -75,8 +74,7 @@ class RajaBooker:
         self.from_price = from_price
         self.to_price = to_price
         self.train_number = train_number
-        self.departure_time_from = departure_time_from
-        self.departure_time_to = departure_time_to
+        self.departure_time_slots = departure_time_slots
         self.child = child
         self.adult = adult
         self.account = None  # RajaAccount
@@ -473,23 +471,16 @@ class RajaBooker:
 
                                 # فیلتر زمان حرکت
                                 exit_time_str = train.get("ExitTime", "")
-                                if (
-                                    self.departure_time_from is not None
-                                    or self.departure_time_to is not None
-                                ):
+                                if self.departure_time_slots is not None:
                                     try:
                                         exit_hour = int(exit_time_str.split(":")[0])
                                         if (
-                                            self.departure_time_from is not None
-                                            and exit_hour < self.departure_time_from
+                                            self.departure_time_slots is not None
+                                            and exit_hour < self.departure_time_slots
                                         ):
                                             continue
-                                        if (
-                                            self.departure_time_to is not None
-                                            and exit_hour > self.departure_time_to
-                                        ):
                                             continue
-                                    except:
+                                    except Exception:
                                         pass
 
                                 # بررسی ظرفیت

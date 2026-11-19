@@ -51,8 +51,7 @@ class RajaBooker:
         from_price=None,
         to_price=None,
         train_number=None,
-        departure_time_from=None,
-        departure_time_to=None,
+        departure_time_slots=None,
         adult=None,
         child=None,
     ):
@@ -74,8 +73,7 @@ class RajaBooker:
         self.from_price = from_price
         self.to_price = to_price
         self.train_number = train_number
-        self.departure_time_from = departure_time_from
-        self.departure_time_to = departure_time_to
+        self.departure_time_slots = departure_time_slots
         self.child = child
         self.adult = adult
         self.account = None
@@ -101,8 +99,7 @@ class RajaBooker:
             #     "from_price": self.from_price,
             #     "to_price": self.to_price,
             #     "train_number": self.train_number,
-            #     "departure_time_from": self.departure_time_from,
-            #     "departure_time_to": self.departure_time_to,
+            #     "departure_time_slots": self.departure_time_slots,
             #     "adult": self.adult,
             #     "child": self.child,
             # }
@@ -227,7 +224,7 @@ class RajaBooker:
                 return "t6_12"
             return "t0_6"
 
-        dep_range = get_time_range(self.departure_time_from, self.departure_time_to)
+        dep_range = get_time_range(self.departure_time_slots)
         if dep_range:
             try:
                 btn = self.page.locator(f"div[name='GoMoveTime'] i.{dep_range}")
