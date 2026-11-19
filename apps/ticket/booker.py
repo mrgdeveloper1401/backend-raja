@@ -427,7 +427,7 @@ class RajaBooker:
                                             "سه ستاره",
                                             "سهستاره",
                                         ],
-                                        "salon": ["سالنی", "سالن"],
+                                        "salon": ["سالنی", "سالن", "اتوبوسي"],
                                     }
                                     if self.coupe_filter == 'four':
                                         if "سالنی" in wagon_name or "سالن" in wagon_name:
