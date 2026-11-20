@@ -362,7 +362,7 @@ class RajaBooker:
             "Accept": "application/json",
             "User-Agent": self.user_agent,
         }
-        poll_interval = 1
+        poll_interval = 0.7
 
         while True:
             try:
@@ -630,10 +630,13 @@ class RajaBooker:
         print("در حال پر کردن مشخصات مسافران...")
 
         # منتظر می‌مانیم تا فرم مسافران لود شود
-        await self.page.get_by_text("کد ملی/شماره پاسپورت").first.wait_for(
-            state="visible", timeout=25000
-        )
-        print("فرم مسافران با موفقیت لود شد.")
+        try:
+            await self.page.get_by_text("کد ملی/شماره پاسپورت").first.wait_for(
+                state="visible", timeout=25000
+            )
+            print("فرم مسافران با موفقیت لود شد.")
+        except Exception as e:
+            pass
 
         await human_delay()
 
