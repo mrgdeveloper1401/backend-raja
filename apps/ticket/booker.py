@@ -571,6 +571,7 @@ class RajaBooker:
         """پیدا کردن قطار در DOM و کلیک روی دکمه رزرو آن"""
         try:
             print("🔄 رفرش صفحه برای دیدن قطار...")
+            print(f'train number found {train}')
             await self.page.reload(wait_until="networkidle")
             await human_delay()
 
