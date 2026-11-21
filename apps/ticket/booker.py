@@ -672,6 +672,7 @@ class RajaBooker:
                     print(f"کد ملی مسافر {i + 1} پر شد: {national_id}")
             except Exception as e:
                 print(f"خطا در پر کردن کد ملی مسافر {i + 1}: {e}")
+                pass
 
             # ۲. پر کردن تاریخ تولد
             try:
@@ -695,6 +696,7 @@ class RajaBooker:
                             )
             except Exception as e:
                 print(f"خطا در پر کردن تاریخ تولد مسافر {i + 1}: {e}")
+                pass
 
             # ۳. پر کردن نام (اگر فیلد قابل ویرایش وجود داشت)
             try:
@@ -750,10 +752,9 @@ class RajaBooker:
                 "label.custom-control-label:has-text('صحت مشخصات')"
             ).click()
             await human_delay()
-        except:
-            await self.page.locator(
-                "div.custom-control.custom-checkbox input[type='checkbox']"
-            ).first.check(force=True)
+        except Exception as e:
+            print(f"خطا {e}")
+            pass
             await human_delay()
 
         # شماره موبایل
@@ -763,7 +764,8 @@ class RajaBooker:
             if self.travel_phone and not await phone_input.input_value():
                 await phone_input.type(self.travel_phone, delay=60)
                 await human_delay()
-        except:
+        except Exception as e:
+            print(f'خطا در وارد کردن موبایل {e}')
             pass
 
         await human_delay()
