@@ -457,9 +457,10 @@ class RajaBooker:
 
                                 # price
                                 cost = train.get("Cost", 0)
-                                if self.from_price and cost < (self.from_price * 10):
+                                print(f"cost {cost}")
+                                if self.from_price and cost < (int(self.from_price) * 10):
                                     continue
-                                if self.to_price and cost > (self.to_price * 10):
+                                if self.to_price and cost > (int(self.to_price) * 10):
                                     continue
 
                                 # move time
