@@ -446,6 +446,7 @@ class RajaBooker:
                                         if (
                                             "سالنی" in wagon_name
                                             or "سالن" in wagon_name
+                                            or "اتوبوسي" in wagon_name
                                         ):
                                             continue
                                     keywords = coupe_keywords.get(self.coupe_filter, [])
