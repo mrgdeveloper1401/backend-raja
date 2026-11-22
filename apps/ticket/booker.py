@@ -9,12 +9,14 @@ import random
 from pathlib import Path
 
 import httpx
+from django.utils import timezone
 from patchright.async_api import async_playwright
 # from pypasser.captcha import arcaptcha
 
 from apps.core.models import Station
 from apps.ticket.models import ReservationAttempt, ReservationStatus
 from apps.user.models import RajaAccount
+from core.settings import TOKEN_REFRESH_MARGIN
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -62,6 +64,7 @@ class RajaBooker:
         user_agent=None,
         raja_api_key=None,
         access_token=None,
+        lg_uf=None,
     ):
         self.account_id = account_id
         self.origin = origin
@@ -88,7 +91,7 @@ class RajaBooker:
         self.api_q_param = None
         self.access_token = access_token
         self.expires_in = None
-        self.lg_uf = None
+        self.lg_uf = lg_uf
         self.data = None
         self.accept_data = None
         self.user_agent = user_agent
@@ -169,9 +172,14 @@ class RajaBooker:
 
                 self.page.on("response", self._capture_api_params)
 
-                if not self.access_token:
+                check = (
+                    self.access_token
+                    and self.account.token_expires_at is not None
+                    and self.account.token_expires_at
+                    > timezone.now() + TOKEN_REFRESH_MARGIN
+                )
+                if not check:
                     await self._login()
-                await self._get_information()
                 await self._set_local_storage()
 
                 print("fill params ...")
@@ -225,9 +233,9 @@ class RajaBooker:
                 await self.account.asave(update_fields=["access_token", "updated_at"])
 
                 await self._get_information()  # get information
-                await human_delay()
+                await human_delay(default=0.1)
                 await self._set_local_storage()  # save into local storage browser
-                await human_delay()
+                await human_delay(default=0.1)
                 print("لاگین با موفقیت انجام شد")
                 return True
             elif response.status_code == 429:
@@ -243,7 +251,7 @@ class RajaBooker:
         if not self.access_token:
             print("⚠️ توکن موجود نیست. ابتدا لاگین میکنیم.")
             await self._login()
-            await human_delay()
+            await human_delay(default=0.1)
 
         token_with_bearer = f"bearer {self.access_token}"
         expiry_time = int((time.time() + 315360000) * 1000)
@@ -255,13 +263,13 @@ class RajaBooker:
             await self.page.local_storage.set_item("AMS", ams_value)
             print("✅ توکن و مقادیر مورد نیاز در Local Storage مرورگر ذخیره شد.")
             all_item = await self.page.local_storage.items()
-            await human_delay()
+            await human_delay(default=0.1)
             print("all item", all_item)
 
             # save local storage
             self.account.local_storage = all_item
-            await self.account.asave()
-            await human_delay()
+            await self.account.asave(update_fields=["updated_at", "local_storage"])
+            await human_delay(default=0.1)
 
         except Exception as e:
             print(f"خطا در ذخیره در Local Storage: {e}")
@@ -283,7 +291,7 @@ class RajaBooker:
 
                 if response.status_code == 200:
                     self.lg_uf = response.json()
-                    await human_delay()
+                    await human_delay(default=0.1)
                     print(f"✅ اطلاعات کاربر با موفقیت دریافت شد: {self.lg_uf}")
                     return True
                 elif response.status_code == 429:
@@ -351,7 +359,7 @@ class RajaBooker:
         )
         print("url", url)
         await self.page.goto(url, wait_until="networkidle")
-        await human_delay()
+        await human_delay(default=0.1)
 
     async def _monitor_and_book(self):
         await self._update_status(ReservationStatus.MONITORING)
@@ -397,7 +405,7 @@ class RajaBooker:
                         if response.status_code == 200:
                             data = response.json()
                             trains = data.get("GoTrains", [])
-                            await human_delay()
+                            await human_delay(default=0.1)
                             matching_trains = []
 
                             for train in trains:
@@ -527,7 +535,7 @@ class RajaBooker:
                                     f"exit_time={selected_train.get('ExitTime')!r}"
                                 )
 
-                                await human_delay()
+                                await human_delay(default=0.1)
                                 await self._update_status(
                                     status=ReservationStatus.MATCH_TRAIN,
                                     matching_trains=matching_trains,
@@ -536,7 +544,7 @@ class RajaBooker:
 
                                 # ⭐️ مرحله جدید: کلیک روی قطار در مرورگر
                                 success = await self._click_train_button(selected_train)
-                                await human_delay()
+                                await human_delay(default=0.1)
                                 if success:
                                     print(
                                         "🎉 کلیک روی دکمه رزرو انجام شد. رفتن به مرحله بعد..."
@@ -592,7 +600,7 @@ class RajaBooker:
             print("🔄 رفرش صفحه برای دیدن قطار...")
             print(f"train number found {train}")
             await self.page.reload(wait_until="networkidle")
-            await human_delay()
+            await human_delay(default=0.1)
 
             # پیدا کردن کارت قطار بر اساس شماره قطار و نوع واگن
             train_number = train["TrainNumber"]
@@ -602,7 +610,7 @@ class RajaBooker:
             card = self.page.locator(
                 f".train-result:has-text('{train_number}'):has-text('{wagon_name}')"
             ).first
-            await human_delay()
+            await human_delay(default=0.1)
             if await card.count() == 0:
                 print(f"⚠️ کارت قطار {train_number} در DOM پیدا نشد.")
                 return False
@@ -613,21 +621,21 @@ class RajaBooker:
             if await book_btn.count() > 0 and await book_btn.is_enabled():
                 print(f"✅ کلیک روی دکمه رزرو برای قطار {train_number}...")
                 await book_btn.click()
-                await human_delay()
+                await human_delay(default=0.1)
 
                 # ⭐️ صبر می‌کنیم تا دکمه "ادامه خرید" در صفحه ظاهر شود
                 print("منتظر ظاهر شدن دکمه ادامه خرید...")
                 continue_btn = self.page.locator(
                     "button.btn-success:has-text('ادامه خرید')"
                 ).first
-                await human_delay()
+                await human_delay(default=0.1)
 
                 # حداکثر 10 ثانیه صبر می‌کنیم تا دکمه ظاهر شود
                 try:
                     await continue_btn.wait_for(state="visible", timeout=10000)
                     print("✅ دکمه ادامه خرید پیدا شد. کلیک می‌کنیم...")
                     await continue_btn.click()
-                    await human_delay()
+                    await human_delay(default=0.1)
                 except Exception as e:
                     print(f"⚠️ دکمه ادامه خرید پیدا نشد: {e}")
                     # اگر پیدا نشد، ممکن است سایت مستقیم به صفحه بعد رفته باشد
@@ -646,7 +654,7 @@ class RajaBooker:
             return False
 
     async def _fill_passenger_details(self):
-        await human_delay()
+        await human_delay(default=0.1)
         print("در حال پر کردن مشخصات مسافران...")
 
         # منتظر می‌مانیم تا فرم مسافران لود شود
@@ -656,9 +664,10 @@ class RajaBooker:
             )
             print("فرم مسافران با موفقیت لود شد.")
         except Exception as e:
-            pass
+            print(f"خطا در لود فرم مسافران {e}")
+            print("ادامه برنامه")
 
-        await human_delay()
+        await human_delay(default=0.1)
 
         # پیدا کردن همه بلوک‌های مسافر
         passenger_blocks = self.page.locator(".passanger-registor").filter(
@@ -679,7 +688,7 @@ class RajaBooker:
 
             # ۱. پر کردن کد ملی
             try:
-                await human_delay()
+                await human_delay(default=0.1)
                 national_id = passenger.get("national_id")
                 if national_id:
                     # پیدا کردن اینپوت کد ملی در این بلوک
@@ -689,11 +698,11 @@ class RajaBooker:
                     print(f"کد ملی مسافر {i + 1} پر شد: {national_id}")
             except Exception as e:
                 print(f"خطا در پر کردن کد ملی مسافر {i + 1}: {e}")
-                pass
+                print("ادامه برنامه")
 
             # ۲. پر کردن تاریخ تولد
             try:
-                await human_delay()
+                await human_delay(default=0.1)
                 birth_date = passenger.get("birth_date")
                 if birth_date:
                     # در HTML شما، اینپوت تاریخ تولد دارای title="روز/ماه/سال" است
@@ -713,11 +722,11 @@ class RajaBooker:
                             )
             except Exception as e:
                 print(f"خطا در پر کردن تاریخ تولد مسافر {i + 1}: {e}")
-                pass
+                print("ادامه برنامه")
 
             # ۳. پر کردن نام (اگر فیلد قابل ویرایش وجود داشت)
             try:
-                await human_delay()
+                await human_delay(default=0.1)
                 first_name = passenger.get("first_name")
                 if first_name:
                     # در HTML شما نام به صورت input دیده نمی‌شود،
@@ -727,12 +736,12 @@ class RajaBooker:
                         await name_input.fill(str(first_name))
                         print(f"نام مسافر {i + 1} پر شد: {first_name}")
             except Exception as e:
-                # اگر فیلد نام وجود نداشت، خطا را نادیده می‌گیریم
-                pass
+                print(f"خطا در لود فیلد نام {e}")
+                print("ادامه برنامه")
 
             # ۴. پر کردن نام خانوادگی (اگر فیلد قابل ویرایش وجود داشت)
             try:
-                await human_delay()
+                await human_delay(default=0.1)
                 last_name = passenger.get("last_name")
                 if last_name:
                     family_input = block.locator("input[name='pFamily']")
@@ -740,12 +749,12 @@ class RajaBooker:
                         await family_input.fill(str(last_name))
                         print(f"نام خانوادگی مسافر {i + 1} پر شد: {last_name}")
             except Exception as e:
-                # اگر فیلد نام خانوادگی وجود نداشت، خطا را نادیده می‌گیریم
-                pass
+                print(f"خطا در لود فیلد نام خوانوادگی {e}")
+                print("ادامه برنامه")
 
             # ۵. انتخاب نوع مسافر (بزرگسال / خردسال)
             # try:
-            #     await human_delay()
+            #     await human_delay(default=0.1)
             #     is_adult = passenger.get("is_adult", True)
             #     # پیدا کردن سلکت نوع مسافر در این بلوک
             #     type_select = block.locator("select").first
@@ -761,18 +770,18 @@ class RajaBooker:
 
     async def _go_to_payment(self):
         print("در حال تیک زدن قوانین و رفتن به پرداخت...")
-        await human_delay()
+        await human_delay(default=0.1)
 
         # تیک قوانین
         try:
             await self.page.locator(
                 "label.custom-control-label:has-text('صحت مشخصات')"
             ).click()
-            await human_delay()
+            await human_delay(default=0.1)
         except Exception as e:
             print(f"خطا {e}")
-            pass
-            await human_delay()
+            print("ادامه برنامه")
+            await human_delay(default=0.1)
 
         # شماره موبایل
         try:
@@ -780,22 +789,22 @@ class RajaBooker:
             await phone_input.wait_for(state="visible")
             if self.travel_phone and not await phone_input.input_value():
                 await phone_input.type(self.travel_phone, delay=60)
-                await human_delay()
+                await human_delay(default=0.1)
         except Exception as e:
             print(f"خطا در وارد کردن موبایل {e}")
-            pass
+            print("ادامه برنامه")
 
-        await human_delay()
+        await human_delay(default=0.1)
 
         # print("کلیک روی دکمه پرداخت اولیه...")
         # await self.page.locator("button.btn-success:has-text('پرداخت')").click()
-        # await human_delay()
+        # await human_delay(default=0.1)
 
         # print("در حال منتظر ماندن برای لود شدن کپچا...")
         # کلیک بر روی دکمه من ربات نیستم
         # captcha_box = self.page.locator("#input-checkbox")
         # await captcha_box.wait_for(state="visible", timeout=25000)
-        # await human_delay()
+        # await human_delay(default=0.1)
 
         # await captcha_box.click()
 
@@ -827,7 +836,7 @@ class RajaBooker:
         #         }}
         #     """)
         #     print("کپچا با موفقیت حل شد")
-        #     await human_delay()
+        #     await human_delay(default=0.1)
 
         payment_url = self.page.url
         print(f"لینک درگاه نهایی: {payment_url}")

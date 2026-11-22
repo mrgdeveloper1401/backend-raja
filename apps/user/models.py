@@ -50,6 +50,7 @@ class RajaAccount(TimestampMixin):
     expire_token = models.PositiveIntegerField(blank=True, null=True)
     token_expires_at = models.DateTimeField(blank=True, null=True)
     local_storage = models.JSONField(blank=True, null=True)
+    user_information = models.CharField(max_length=100, blank=True, null=True)
 
     class Meta:
         db_table = "raja_accounts"

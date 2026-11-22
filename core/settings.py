@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import sys
+from datetime import timedelta
 
 from pathlib import Path
 
@@ -277,3 +278,6 @@ if IS_WINDOWS:
         "apps.ticket.api:api",  # مسیر فایل api.py در اپ ticket
         # اگر اپلیکیشن دیگری هم api.py دارد، اینجا اضافه کنید
     ]
+
+# token refresh margin for raja
+TOKEN_REFRESH_MARGIN = timedelta(seconds=300)
