@@ -373,7 +373,7 @@ class RajaBooker:
             "Accept": "application/json",
             "User-Agent": self.user_agent,
         }
-        poll_interval = 0.7
+        poll_interval = 0.5
 
         while True:
             try:
@@ -394,7 +394,7 @@ class RajaBooker:
                         await asyncio.sleep(0.1)
                     if not self.api_q_param:
                         print("⚠️ q استخراج نشد. تلاش مجدد...")
-                        await asyncio.sleep(0.5)
+                        await asyncio.sleep(0.2)
                         continue
 
                 url = f"https://hostservice.raja.ir/Api/ServiceProvider/TrainListEqWithCaptcha?q={self.api_q_param}"
@@ -600,7 +600,6 @@ class RajaBooker:
             print("🔄 رفرش صفحه برای دیدن قطار...")
             print(f"train number found {train}")
             await self.page.reload(wait_until="networkidle")
-            await human_delay(default=0.1)
 
             # پیدا کردن کارت قطار بر اساس شماره قطار و نوع واگن
             train_number = train["TrainNumber"]
@@ -610,7 +609,6 @@ class RajaBooker:
             card = self.page.locator(
                 f".train-result:has-text('{train_number}'):has-text('{wagon_name}')"
             ).first
-            await human_delay(default=0.1)
             if await card.count() == 0:
                 print(f"⚠️ کارت قطار {train_number} در DOM پیدا نشد.")
                 return False
