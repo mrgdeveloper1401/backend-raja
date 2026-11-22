@@ -65,6 +65,10 @@ echo "========== اجرای Celery =========="
 setsid uv run celery -A core worker -l INFO &
 PIDS+=("$!")
 
+echo "========== اجرای flower =========="
+setsid uv run celery -A core flower &
+PIDS+=("$!")
+
 echo "========== اجرای فرانت‌اند =========="
 cd "$BASE_DIR/raja-reserv-train"
 

@@ -169,7 +169,10 @@ class RajaBooker:
 
                 self.page.on("response", self._capture_api_params)
 
-                await self._login()
+                if not self.access_token:
+                    await self._login()
+                await self._get_information()
+                await self._set_local_storage()
 
                 print("fill params ...")
                 await self._fill_params()
@@ -458,7 +461,9 @@ class RajaBooker:
                                 # price
                                 cost = train.get("Cost", 0)
                                 print(f"cost {cost}")
-                                if self.from_price and cost < (int(self.from_price) * 10):
+                                if self.from_price and cost < (
+                                    int(self.from_price) * 10
+                                ):
                                     continue
                                 if self.to_price and cost > (int(self.to_price) * 10):
                                     continue
@@ -466,19 +471,25 @@ class RajaBooker:
                                 # move time
                                 if self.departure_time_slots:
                                     try:
-                                        hour_str, minute_str = train["ExitTime"].strip().split(":")
+                                        hour_str, minute_str = (
+                                            train["ExitTime"].strip().split(":")
+                                        )
                                         exit_hour = int(hour_str)
                                         exit_minute = int(minute_str)
-                                    except (KeyError, AttributeError, ValueError):
+                                    except KeyError, AttributeError, ValueError:
                                         continue
 
-                                    if not (0 <= exit_hour < 24 and 0 <= exit_minute < 60):
+                                    if not (
+                                        0 <= exit_hour < 24 and 0 <= exit_minute < 60
+                                    ):
                                         continue
 
                                     if not any(
-                                            start_hour <= exit_hour < DEPARTURE_SLOT_ENDS[start_hour]
-                                            for start_hour in self.departure_time_slots
-                                            if start_hour in DEPARTURE_SLOT_ENDS
+                                        start_hour
+                                        <= exit_hour
+                                        < DEPARTURE_SLOT_ENDS[start_hour]
+                                        for start_hour in self.departure_time_slots
+                                        if start_hour in DEPARTURE_SLOT_ENDS
                                     ):
                                         continue
                                 if (
@@ -490,9 +501,15 @@ class RajaBooker:
                                 # کوپه دربست
                                 available_seats = train.get("Counting")
                                 if self.is_exclusive:
-                                    if self.coupe_filter == "four" and available_seats < 4:
+                                    if (
+                                        self.coupe_filter == "four"
+                                        and available_seats < 4
+                                    ):
                                         continue
-                                    if self.coupe_filter == "three" and available_seats < 6:
+                                    if (
+                                        self.coupe_filter == "three"
+                                        and available_seats < 6
+                                    ):
                                         continue
 
                                 matching_trains.append(train)
@@ -573,7 +590,7 @@ class RajaBooker:
         """پیدا کردن قطار در DOM و کلیک روی دکمه رزرو آن"""
         try:
             print("🔄 رفرش صفحه برای دیدن قطار...")
-            print(f'train number found {train}')
+            print(f"train number found {train}")
             await self.page.reload(wait_until="networkidle")
             await human_delay()
 
@@ -765,7 +782,7 @@ class RajaBooker:
                 await phone_input.type(self.travel_phone, delay=60)
                 await human_delay()
         except Exception as e:
-            print(f'خطا در وارد کردن موبایل {e}')
+            print(f"خطا در وارد کردن موبایل {e}")
             pass
 
         await human_delay()
