@@ -8,10 +8,10 @@ from celery import shared_task
 from django.utils import timezone
 from fake_useragent import UserAgent
 
-from core.settings import TOKEN_REFRESH_MARGIN
+from core.settings import TOKEN_REFRESH_MARGIN, RAJA_CONFIG_URL, RAJA_SITE
 from .booker import RajaBooker
 from .models import Reservation, ReservationAttempt
-from ..core.models import RajaApiKey
+from ..core.models import RajaApiKey, RajaConfig
 from ..user.models import RajaAccount
 
 
@@ -22,7 +22,8 @@ def login_user(username: str, password: str):
         "Accept": "application/json",
         "User-Agent": UserAgent().chrome,
         "Content-Type": "application/x-www-form-urlencoded",
-        "Origin": "https://www.raja.ir",
+        "Origin": RAJA_SITE,
+        "Referer": RAJA_SITE,
     }
     data = {
         "username": username,
@@ -44,7 +45,8 @@ def get_information(raja_api_key, access_token):
         "api-key": raja_api_key,
         "Authorization": f"bearer {access_token}",
         "content-type": "application/json",
-        "origin": "https://www.raja.ir",
+        "Origin": RAJA_SITE,
+        "Referer": RAJA_SITE,
         "user-agent": UserAgent().chrome,
     }
     response = httpx.get(url, headers=headers)
@@ -52,6 +54,20 @@ def get_information(raja_api_key, access_token):
         return response.json()
     else:
         return None
+
+
+def get_raja_config():
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Origin": RAJA_SITE,
+        "Referer": RAJA_SITE,
+    }
+    res = httpx.get(RAJA_CONFIG_URL, headers=headers, timeout=30)
+    res.raise_for_status()
+    return res.json()
 
 
 @shared_task(queue="booker", time_limit=3600)
@@ -153,6 +169,7 @@ def process_reservation_task(reservation_id):
 
 @shared_task(queue="qu")
 def login_user_task(raja_account_id):
+    """task for login before reservation"""
     account = RajaAccount.objects.get(pk=raja_account_id)
 
     # check expire access_token
@@ -169,9 +186,11 @@ def login_user_task(raja_account_id):
     received_at = timezone.now()
 
     if not res or not res.get("access_token"):
-        raise ValueError("Raja login did not return an access token")
+        raise ValueError(
+            "Raja login did not return an access token, please reright this logic"
+        )
 
-    expires_in = int(res["expires_in"])  # نام واقعی کلید در پاسخ API
+    expires_in = int(res["expires_in"])
 
     account.access_token = res["access_token"]
     account.expire_token = expires_in
@@ -186,3 +205,19 @@ def login_user_task(raja_account_id):
     account.save()
 
     return "refreshed"
+
+
+@shared_task(queue="qu")
+def check_raja_api_key():
+    obj = RajaConfig.objects.last()
+    res_data = get_raja_config()
+    if obj:
+        if obj.raja_config.get("Key") == res_data.get("key"):
+            return "skipped"
+        else:
+            obj.raja_config = res_data
+            obj.save()
+            return "refreshed config raja"
+    else:
+        RajaConfig.objects.create(raja_config=res_data)
+        return "create new config raja"

@@ -2,10 +2,16 @@ import httpx
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-# مدل خودت را ایمپورت کن
-from apps.core.models import Station
 
-RAJA_STATIONS_URL = "https://www.raja.ir/assets/File/station.json"
+from apps.core.models import Station, RajaConfig
+from core.settings import RAJA_CONFIG_URL, RAJA_STATIONS_URL
+
+headers = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    )
+}
 
 
 class Command(BaseCommand):
@@ -14,24 +20,25 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write("در حال دریافت اطلاعات ایستگاه‌ها از رجا...")
 
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-        }
-
         try:
             response = httpx.get(RAJA_STATIONS_URL, headers=headers, timeout=30)
             response.raise_for_status()
             data = response.json()
         except Exception as e:
             self.stderr.write(self.style.ERROR(f"خطا در دریافت اطلاعات: {e}"))
-            return
+            return None
 
         if not isinstance(data, list):
             self.stderr.write(self.style.ERROR("فرمت دیتای دریافتی لیست نیست!"))
-            return
+            return None
+
+        try:
+            res = httpx.get(RAJA_CONFIG_URL, headers=headers, timeout=30)
+            res.raise_for_status()
+            d = res.json()
+        except Exception as e:
+            self.stderr.write(self.style.ERROR(f" {e}خطا در دریافت کانفیگ سایت رجا"))
+            return None
 
         # تبدیل دیکشنری‌ها به آبجکت‌های مدل
         station_instances = []
@@ -72,8 +79,13 @@ class Command(BaseCommand):
                 unique_fields=["code"],
             )
 
+            RajaConfig.objects.create(raja_config=d)
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"تعداد {len(station_instances)} ایستگاه با موفقیت در دیتابیس ثبت/به‌روزرسانی شد."
             )
         )
+
+        self.stdout.write(self.style.SUCCESS(f"فایل کانفیگ رجا با موفقیت اپدیت شد"))
+        return None

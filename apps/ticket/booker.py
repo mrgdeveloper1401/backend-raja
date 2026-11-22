@@ -2,7 +2,7 @@ import asyncio
 import json
 import time
 from urllib import parse
-from urllib.parse import urlparse, parse_qs
+# from urllib.parse import urlparse, parse_qs
 
 import traceback
 import random
@@ -16,7 +16,8 @@ from patchright.async_api import async_playwright
 from apps.core.models import Station
 from apps.ticket.models import ReservationAttempt, ReservationStatus
 from apps.user.models import RajaAccount
-from core.settings import TOKEN_REFRESH_MARGIN
+from core.settings import TOKEN_REFRESH_MARGIN, RAJA_FRONT_API_KEY, RAJA_SITE
+from core.utils.trains import create_rj_search_trains, TICKET_TYPE
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -64,7 +65,7 @@ class RajaBooker:
         user_agent=None,
         raja_api_key=None,
         access_token=None,
-        lg_uf=None,
+        lg_uf=None
     ):
         self.account_id = account_id
         self.origin = origin
@@ -97,6 +98,10 @@ class RajaBooker:
         self.user_agent = user_agent
         self.raja_api_key = raja_api_key
         self.selected_train = None  # ذخیره قطار انتخاب شده
+        self.origin_code=None,
+        self.destination_code=None,
+        if self.raja_api_key is None:
+            self.raja_api_key = RAJA_FRONT_API_KEY
 
     async def _update_status(
         self,
@@ -138,16 +143,16 @@ class RajaBooker:
         except Exception as e:
             print(f"خطا در آپدیت وضعیت: {e}")
 
-    async def _capture_api_params(self, response):
-        if "TrainListEqWithCaptcha" in response.url:
-            try:
-                parsed_url = urlparse(response.url)
-                query_params = parse_qs(parsed_url.query)
-                if "q" in query_params:
-                    self.api_q_param = query_params["q"][0]
-                    print(f"✅ پارامتر q استخراج شد (طول: {len(self.api_q_param)})")
-            except Exception as e:
-                print(f"خطا در استخراج q: {e}")
+    # async def _capture_api_params(self, response):
+    #     if "TrainListEqWithCaptcha" in response.url:
+    #         try:
+    #             parsed_url = urlparse(response.url)
+    #             query_params = parse_qs(parsed_url.query)
+    #             if "q" in query_params:
+    #                 self.api_q_param = query_params["q"][0]
+    #                 print(f"✅ پارامتر q استخراج شد (طول: {len(self.api_q_param)})")
+    #         except Exception as e:
+    #             print(f"خطا در استخراج q: {e}")
 
     async def start(self):
         try:
@@ -168,9 +173,9 @@ class RajaBooker:
                 await self.page.goto(
                     "https://www.raja.ir/", wait_until="domcontentloaded"
                 )
-                await asyncio.sleep(2)
+                # await asyncio.sleep(2)
 
-                self.page.on("response", self._capture_api_params)
+                # self.page.on("response", self._capture_api_params)
 
                 check = (
                     self.access_token
@@ -181,6 +186,9 @@ class RajaBooker:
                 if not check:
                     await self._login()
                 await self._set_local_storage()
+
+                # create q
+                await self._create_q()
 
                 print("fill params ...")
                 await self._fill_params()
@@ -213,7 +221,8 @@ class RajaBooker:
             "Accept": "application/json",
             "User-Agent": self.user_agent,
             "Content-Type": "application/x-www-form-urlencoded",
-            "Origin": "https://www.raja.ir",
+            "Origin": RAJA_SITE,
+            "Referer": RAJA_SITE,
         }
         data = {
             "username": self.account.username,
@@ -247,6 +256,20 @@ class RajaBooker:
                 print(f"پاسخ سرور: {response.text}")
                 return False
 
+    async def _create_q(self):
+        # create q
+        print(TICKET_TYPE[self.passenger_type])
+        print("ساخت پارامتر q با استفاده از raja-mcp ...")
+        res = await create_rj_search_trains(
+            origin={'Code': self.origin_code},
+            destination={'Code': self.destination_code},
+            d=self.travel_date,
+            passengers=len(self.passengers),
+            ticket_type=TICKET_TYPE[self.passenger_type],
+        )
+        print(f"res {res}")
+        return res
+
     async def _set_local_storage(self):
         if not self.access_token:
             print("⚠️ توکن موجود نیست. ابتدا لاگین میکنیم.")
@@ -263,13 +286,11 @@ class RajaBooker:
             await self.page.local_storage.set_item("AMS", ams_value)
             print("✅ توکن و مقادیر مورد نیاز در Local Storage مرورگر ذخیره شد.")
             all_item = await self.page.local_storage.items()
-            await human_delay(default=0.1)
             print("all item", all_item)
 
             # save local storage
             self.account.local_storage = all_item
             await self.account.asave(update_fields=["updated_at", "local_storage"])
-            await human_delay(default=0.1)
 
         except Exception as e:
             print(f"خطا در ذخیره در Local Storage: {e}")
@@ -281,7 +302,8 @@ class RajaBooker:
             "api-key": self.raja_api_key,
             "Authorization": f"bearer {self.access_token}",
             "content-type": "application/json",
-            "origin": "https://www.raja.ir",
+            "Origin": RAJA_SITE,
+            "Referer": RAJA_SITE,
             "user-agent": self.user_agent,
         }
 
@@ -291,7 +313,6 @@ class RajaBooker:
 
                 if response.status_code == 200:
                     self.lg_uf = response.json()
-                    await human_delay(default=0.1)
                     print(f"✅ اطلاعات کاربر با موفقیت دریافت شد: {self.lg_uf}")
                     return True
                 elif response.status_code == 429:
@@ -336,7 +357,9 @@ class RajaBooker:
         get_origin = await Station.objects.filter(name=origin).afirst()
         get_destination = await Station.objects.filter(name=destination).afirst()
         or_code = get_origin.code
+        self.origin_code = or_code
         des_code = get_destination.code
+        self.destination_code = des_code
 
         desctravel_text = f"قطار {self.origin} به {self.destination}"
         desctravel = parse.quote(desctravel_text)
@@ -372,6 +395,8 @@ class RajaBooker:
             "Api-Key": self.raja_api_key,
             "Accept": "application/json",
             "User-Agent": self.user_agent,
+            "Origin": RAJA_SITE,
+            "Referer": RAJA_SITE,
         }
         poll_interval = 0.5
 
@@ -384,20 +409,21 @@ class RajaBooker:
                     )
                     return
 
-                if not self.api_q_param:
-                    print("🔄 در حال دریافت q جدید از مرورگر...")
-                    self.api_q_param = None
-                    await self.page.reload(wait_until="domcontentloaded")
-                    for _ in range(20):
-                        if self.api_q_param:
-                            break
-                        await asyncio.sleep(0.1)
-                    if not self.api_q_param:
-                        print("⚠️ q استخراج نشد. تلاش مجدد...")
-                        await asyncio.sleep(0.2)
-                        continue
+                # if not self.api_q_param:
+                #     print("🔄 در حال دریافت q جدید از مرورگر...")
+                #     self.api_q_param = None
+                #     await self.page.reload(wait_until="domcontentloaded")
+                #     for _ in range(20):
+                #         if self.api_q_param:
+                #             break
+                #         await asyncio.sleep(0.1)
+                #     if not self.api_q_param:
+                #         print("⚠️ q استخراج نشد. تلاش مجدد...")
+                #         await asyncio.sleep(0.1)
+                #         continue
 
-                url = f"https://hostservice.raja.ir/Api/ServiceProvider/TrainListEqWithCaptcha?q={self.api_q_param}"
+                # url = f"https://hostservice.raja.ir/Api/ServiceProvider/TrainListEqWithCaptcha?q={self.api_q_param}"
+                url = await self._create_q()
                 try:
                     async with httpx.AsyncClient(timeout=15) as client:
                         response = await client.get(url, headers=headers)
@@ -405,7 +431,6 @@ class RajaBooker:
                         if response.status_code == 200:
                             data = response.json()
                             trains = data.get("GoTrains", [])
-                            await human_delay(default=0.1)
                             matching_trains = []
 
                             for train in trains:
@@ -535,7 +560,6 @@ class RajaBooker:
                                     f"exit_time={selected_train.get('ExitTime')!r}"
                                 )
 
-                                await human_delay(default=0.1)
                                 await self._update_status(
                                     status=ReservationStatus.MATCH_TRAIN,
                                     matching_trains=matching_trains,
@@ -544,7 +568,6 @@ class RajaBooker:
 
                                 # ⭐️ مرحله جدید: کلیک روی قطار در مرورگر
                                 success = await self._click_train_button(selected_train)
-                                await human_delay(default=0.1)
                                 if success:
                                     print(
                                         "🎉 کلیک روی دکمه رزرو انجام شد. رفتن به مرحله بعد..."
@@ -552,7 +575,7 @@ class RajaBooker:
                                     return  # خروج از حلقه رصد، ادامه در start()
                                 else:
                                     print("⚠️ کلیک ناموفق بود. بازگشت به رصد...")
-                                    await asyncio.sleep(2)
+                                    await asyncio.sleep(1)
                                     continue
                             else:
                                 print(

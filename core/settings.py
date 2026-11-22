@@ -279,5 +279,32 @@ if IS_WINDOWS:
         # اگر اپلیکیشن دیگری هم api.py دارد، اینجا اضافه کنید
     ]
 
-# token refresh margin for raja
+# config raja
 TOKEN_REFRESH_MARGIN = timedelta(seconds=300)
+RAJA_FRONT_API_KEY = config(
+    "RAJA_FRONT_API_KEY",
+    cast=str,
+    default="sDSLk2rGId8L0jUz7N2vQK02vkGPf3DgqB0Yi9oqgI9yH3xWqxewCFOxdCmpMjbOROGTPMg162oK40pvX1asop23b0m2MNIulmNUxjwS2Vuq4opmBS4kVuHJUdSf60bJ",
+)
+RAJA_SITE = "https://www.raja.ir"
+RAJA_API = "https://hostservice.raja.ir/Api/ServiceProvider"
+RAJA_HEADERS = {
+    # User-Agent, sec-ch-ua and TLS come from the impersonated Chrome profile (see _get_client).
+    "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "priority": "u=1, i",
+}
+
+RAJA_MAX_CONCURRENCY = 2
+RAJA_JITTER = (0.1, 0.4)  # seconds before each uncached call
+RAJA_MAX_RETRIES = 2
+RAJA_MAX_RETRY_WAIT = 10  # cap for Retry-After and backoff, seconds
+RAJA_CACHE_TTL = 30  # seconds; free seats change as tickets sell
+RAJA_CACHE_MAX = 128
+RAJA_RETRY_DELAY = 0.5  # seconds, doubled per retry
+RAJA_MAX_BODY = 5_000_000  # bytes; larger responses are refused
+# www.raja.ir calls hostservice.raja.ir from the browser (checked in Chrome 2026-11-16). Doubles as the allowlist.
+RAJA_HOSTS = {"www.raja.ir", "hostservice.raja.ir"}
+RAJA_CONFIG_URL = "https://www.raja.ir/assets/File/xrs.json"
+RAJA_STATIONS_URL = "https://www.raja.ir/assets/File/station.json"

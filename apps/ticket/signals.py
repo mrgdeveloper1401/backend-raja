@@ -1,12 +1,11 @@
 # apps/ticket/signals.py
-import httpx
 from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from fake_useragent import UserAgent
 
 from .models import Reservation, ReservationAttempt, ReservationStatus
-from .tasks import process_reservation_task, login_user_task
+from .tasks import process_reservation_task, login_user_task, check_raja_api_key
 
 
 @receiver(post_save, sender=Reservation)
@@ -19,6 +18,7 @@ def trigger_reservation_task(sender, instance, created, **kwargs):
         transaction.on_commit(_process_reservation_task)
 
     login_user_task.delay(instance.raja_account_id)
+    check_raja_api_key.delay()
 
 
 @receiver(pre_save, sender=ReservationAttempt)

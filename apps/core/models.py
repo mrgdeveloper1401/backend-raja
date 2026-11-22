@@ -33,19 +33,17 @@ class SoftDeleteMixin(models.Model):
 
 
 class Station(models.Model):
-    code = models.PositiveIntegerField(unique=True, verbose_name="کد ایستگاه")
-    name = models.CharField(max_length=255, verbose_name="نام")
+    code = models.PositiveIntegerField(unique=True)
+    name = models.CharField(max_length=255)
     english_name = models.CharField(
-        max_length=255, blank=True, default="", verbose_name="نام انگلیسی"
+        max_length=255,
+        blank=True,
+        default="",
     )
-    tel_code = models.CharField(
-        max_length=20, blank=True, default="", verbose_name="کد تلفن"
-    )
-    group = models.CharField(
-        max_length=255, blank=True, default="", verbose_name="گروه"
-    )
-    is_car_ticket = models.BooleanField(default=False, verbose_name="حمل خودرو")
-    is_exclusion = models.BooleanField(default=False, verbose_name="استثنا")
+    tel_code = models.CharField(max_length=20, blank=True, default="")
+    group = models.CharField(max_length=255, blank=True, default="")
+    is_car_ticket = models.BooleanField(default=False)
+    is_exclusion = models.BooleanField(default=False)
 
     class Meta:
         db_table = "station"
@@ -68,3 +66,12 @@ class RajaApiKey(TimestampMixin, SoftDeleteMixin):
         db_table = "raja_api_key"
         verbose_name = _("کلید های رجا")
         verbose_name_plural = _("کلید های رجا")
+
+
+class RajaConfig(TimestampMixin):
+    raja_config = models.JSONField(_("فایل استیشن"), default=dict)
+
+    class Meta:
+        db_table = "raja_station"
+        verbose_name = _("کانفیگ رجا")
+        verbose_name_plural = _("کانفیگ های رجا")
