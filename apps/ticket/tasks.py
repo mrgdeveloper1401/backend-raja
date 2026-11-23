@@ -8,7 +8,12 @@ from celery import shared_task
 from django.utils import timezone
 from fake_useragent import UserAgent
 
-from core.settings import TOKEN_REFRESH_MARGIN, RAJA_CONFIG_URL, RAJA_SITE, RAJA_FRONT_API_KEY
+from core.settings import (
+    TOKEN_REFRESH_MARGIN,
+    RAJA_CONFIG_URL,
+    RAJA_SITE,
+    RAJA_FRONT_API_KEY,
+)
 from .booker import RajaBooker
 from .models import Reservation, ReservationAttempt
 from ..core.models import RajaApiKey, RajaConfig

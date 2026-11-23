@@ -65,7 +65,7 @@ class RajaBooker:
         user_agent=None,
         raja_api_key=None,
         access_token=None,
-        lg_uf=None
+        lg_uf=None,
     ):
         self.account_id = account_id
         self.origin = origin
@@ -98,8 +98,8 @@ class RajaBooker:
         self.user_agent = user_agent
         self.raja_api_key = raja_api_key
         self.selected_train = None  # ذخیره قطار انتخاب شده
-        self.origin_code=None,
-        self.destination_code=None,
+        self.origin_code = (None,)
+        self.destination_code = (None,)
         if self.raja_api_key is None:
             self.raja_api_key = RAJA_FRONT_API_KEY
 
@@ -261,8 +261,8 @@ class RajaBooker:
         print(TICKET_TYPE[self.passenger_type])
         print("ساخت پارامتر q با استفاده از raja-mcp ...")
         res = await create_rj_search_trains(
-            origin={'Code': self.origin_code},
-            destination={'Code': self.destination_code},
+            origin={"Code": self.origin_code},
+            destination={"Code": self.destination_code},
             d=self.travel_date,
             passengers=len(self.passengers),
             ticket_type=TICKET_TYPE[self.passenger_type],
@@ -544,6 +544,11 @@ class RajaBooker:
                                         and available_seats < 6
                                     ):
                                         continue
+                                    if (
+                                        self.coupe_filter == "five"
+                                        and available_seats < 5
+                                    ):
+                                        continue
 
                                 matching_trains.append(train)
 
@@ -658,7 +663,9 @@ class RajaBooker:
                     return True
                 except Exception:
                     # اگر URL عوض نشد، یعنی کلیک ناموفق بوده (صندلی پر شده)
-                    print("⚠️ URL تغییر نکرد. احتمالاً صندلی توسط کاربر دیگری رزرو شده است.")
+                    print(
+                        "⚠️ URL تغییر نکرد. احتمالاً صندلی توسط کاربر دیگری رزرو شده است."
+                    )
                     print("⚠️ بازگشت به رصد...")
                     await human_delay(default=0.1)
                     return False
