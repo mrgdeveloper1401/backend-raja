@@ -105,5 +105,5 @@ async def create_rj_search_trains(
     q = f"{a['Code']}-{b['Code']}-{ticket_type}-1-{day}-{day}-{passengers}-false-0-0-L1"
     public_key = await get_public_key()
     encrypt_q = encrypt(q, public_key)
-    res = f"{RAJA_API}/TrainListEq?q={encrypt_q}"
+    res = f"{RAJA_API}/TrainListEqWithCaptcha?q={encrypt_q}"
     return res
