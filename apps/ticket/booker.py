@@ -538,23 +538,23 @@ class RajaBooker:
                                 if self.is_exclusive:
                                     if (
                                         self.coupe_filter == "four"
-                                        and available_seats < 4
+                                        and available_seats <= 4
                                     ):
                                         continue
                                     if (
                                         self.coupe_filter == "three"
-                                        and available_seats < 6
+                                        and available_seats <= 6
                                     ):
                                         continue
                                     if (
                                         self.coupe_filter == "five"
-                                        and available_seats < 5
+                                        and available_seats <= 4
                                     ):
                                         continue
                                     if (
                                         self.coupe_filter == "all"
                                         or self.coupe_filter is None
-                                    ) and available_seats < 4:
+                                    ) and available_seats <= 4:
                                         continue
 
                                 matching_trains.append(train)
