@@ -643,29 +643,25 @@ class RajaBooker:
                 print(f"✅ کلیک روی دکمه رزرو برای قطار {train_number}...")
                 await book_btn.click()
                 await human_delay(default=0.1)
-
                 # ⭐️ صبر می‌کنیم تا دکمه "ادامه خرید" در صفحه ظاهر شود
                 print("منتظر ظاهر شدن دکمه ادامه خرید...")
                 continue_btn = self.page.locator(
                     "button.btn-success:has-text('ادامه خرید')"
                 ).first
-                await human_delay(default=0.1)
+                await continue_btn.click()
 
-                # حداکثر 10 ثانیه صبر می‌کنیم تا دکمه ظاهر شود
+                # منتظر تغییر URL می‌مانیم (چون رجا مستقیم به registerticket می‌رود)
                 try:
-                    await continue_btn.wait_for(state="visible", timeout=10000)
-                    print("✅ دکمه ادامه خرید پیدا شد. کلیک می‌کنیم...")
-                    await continue_btn.click()
+                    # حداکثر 10 ثانیه صبر می‌کنیم تا URL تغییر کند
+                    await self.page.wait_for_url("**/registerticket**", timeout=10000)
+                    print("🎉 با موفقیت به صفحه ثبت‌نام (registerticket) منتقل شدیم!")
+                    return True
+                except Exception:
+                    # اگر URL عوض نشد، یعنی کلیک ناموفق بوده (صندلی پر شده)
+                    print("⚠️ URL تغییر نکرد. احتمالاً صندلی توسط کاربر دیگری رزرو شده است.")
+                    print("⚠️ بازگشت به رصد...")
                     await human_delay(default=0.1)
-                except Exception as e:
-                    print(f"⚠️ دکمه ادامه خرید پیدا نشد: {e}")
-                    # اگر پیدا نشد، ممکن است سایت مستقیم به صفحه بعد رفته باشد
-                    pass
-
-                # منتظر می‌مانیم تا به صفحه بعد برود
-                await self.page.wait_for_load_state("networkidle")
-                await asyncio.sleep(2)
-                return True
+                    return False
             else:
                 print(f"⚠️ دکمه رزرو برای قطار {train_number} غیرفعال است.")
                 return False
