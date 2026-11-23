@@ -398,7 +398,7 @@ class RajaBooker:
             "Origin": RAJA_SITE,
             "Referer": RAJA_SITE,
         }
-        poll_interval = 0.5
+        poll_interval = 0.3
 
         while True:
             try:

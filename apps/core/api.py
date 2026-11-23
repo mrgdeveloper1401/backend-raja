@@ -68,4 +68,4 @@ async def stream_reservation_logs(reservation_id: int) -> AsyncGenerator[dict, N
             yield {"log": f"خطا در خواندن لاگ: {e}"}
             break
 
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.2)
