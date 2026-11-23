@@ -48,6 +48,7 @@ class OrderListSchema(Serializer):
     adult_number: int
     baby_number: int
     departure_time_slots: list[int] | None = None
+    raja_account_id: int | None = None
     to_date: Optional[date] = None
     from_price: Decimal | None = None
     to_price: Decimal | None = None
@@ -114,6 +115,7 @@ class OrderDetailSchema(Serializer):
     passengers: list[PassengerDetailSchema]
     coupe_type: Optional[str] = None
     departure_time_slots: list[int] | None = None
+    raja_account_id: int | None = None
 
 
 class PassengerUpdateSchema(Serializer):
