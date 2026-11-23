@@ -16,6 +16,29 @@ for cmd in git uv npm setsid; do
     fi
 done
 
+# تابع: آزادسازی پورت (SIGKILL به هر پردازه‌ای که روی آن گوش می‌دهد)
+free_port() {
+    local port=$1
+    set +e
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -KILL "${port}/tcp" >/dev/null 2>&1
+    elif command -v lsof >/dev/null 2>&1; then
+        local pids
+        pids=$(lsof -ti tcp:"${port}" 2>/dev/null)
+        if [ -n "$pids" ]; then
+            kill -9 $pids 2>/dev/null
+        fi
+    fi
+    # صبر تا پورت واقعاً آزاد شود
+    for _ in {1..10}; do
+        if ! (echo >/dev/tcp/127.0.0.1/"${port}") 2>/dev/null; then
+            break
+        fi
+        sleep 0.2
+    done
+    set -e
+}
+
 cleanup() {
     trap - EXIT INT TERM
 
@@ -27,7 +50,6 @@ cleanup() {
     echo "در حال توقف بک‌اند، فرانت‌اند و Celery..."
     echo "منتظر پایان کار فرایندها بمان."
 
-    # ارسال SIGTERM به تمام اعضای گروه پردازشی هر سرویس
     for pid in "${PIDS[@]}"; do
         kill -TERM -- "-$pid" 2>/dev/null || true
     done
@@ -58,6 +80,7 @@ npm run build
 echo "========== اجرای بک‌اند =========="
 cd "$BASE_DIR/backend-raja"
 
+free_port 8000
 setsid uv run python manage.py runbolt &
 PIDS+=("$!")
 
@@ -66,21 +89,22 @@ setsid uv run celery -A core worker -l INFO &
 PIDS+=("$!")
 
 echo "========== اجرای flower =========="
+free_port 5555
 setsid uv run celery -A core flower &
 PIDS+=("$!")
 
 echo "========== اجرای فرانت‌اند =========="
 cd "$BASE_DIR/raja-reserv-train"
 
+free_port 3000
 setsid npm run start &
 PIDS+=("$!")
 
 echo
-echo "هر سه سرویس اجرا شدند."
+echo "✅ هر سه سرویس اجرا شدند."
 echo "برای توقف همه: Ctrl+C"
 echo "PID اسکریپت: $$"
 
-# اگر یکی از سرویس‌ها خارج شود، بقیه نیز متوقف می‌شوند.
 set +e
 wait -n "${PIDS[@]}"
 STATUS=$?

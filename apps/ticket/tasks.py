@@ -8,7 +8,7 @@ from celery import shared_task
 from django.utils import timezone
 from fake_useragent import UserAgent
 
-from core.settings import TOKEN_REFRESH_MARGIN, RAJA_CONFIG_URL, RAJA_SITE
+from core.settings import TOKEN_REFRESH_MARGIN, RAJA_CONFIG_URL, RAJA_SITE, RAJA_FRONT_API_KEY
 from .booker import RajaBooker
 from .models import Reservation, ReservationAttempt
 from ..core.models import RajaApiKey, RajaConfig
@@ -84,11 +84,9 @@ def run_attempt_task(attempt_id):
         .get(id=attempt_id)
     )
 
-    # raja api key
-    raja_api_jey = RajaApiKey.objects.select_related("raja_account").last()
-
     # get reservation
     reservation = attempt.reservation
+    raja_account = attempt.reservation.raja_account
 
     # تبدیل تاریخ میلادی دیتابیس به شمسی برای ربات
     travel_date_jalali = jdatetime.date.fromgregorian(
@@ -143,9 +141,9 @@ def run_attempt_task(attempt_id):
         adult=reservation.adult_number,
         child=reservation.baby_number,
         user_agent=attempt.user_agent,
-        raja_api_key=raja_api_jey.api_key,
-        access_token=raja_api_jey.raja_account.access_token,
-        lg_uf=raja_api_jey.raja_account.user_information,
+        raja_api_key=RAJA_FRONT_API_KEY,
+        access_token=raja_account.access_token,
+        lg_uf=raja_account.user_information,
         departure_time_slots=reservation.departure_time_slots,
     )
 
