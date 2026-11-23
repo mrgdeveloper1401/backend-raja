@@ -98,8 +98,9 @@ class RajaBooker:
         self.user_agent = user_agent
         self.raja_api_key = raja_api_key
         self.selected_train = None  # ذخیره قطار انتخاب شده
-        self.origin_code = (None,)
-        self.destination_code = (None,)
+        self.origin_code = None
+        self.destination_code = None
+        self.decrypt_url = None
         if self.raja_api_key is None:
             self.raja_api_key = RAJA_FRONT_API_KEY
 
@@ -398,7 +399,8 @@ class RajaBooker:
             "Origin": RAJA_SITE,
             "Referer": RAJA_SITE,
         }
-        poll_interval = 0.3
+        poll_interval = 0.2
+        self.decrypt_url = await self._create_q()
 
         while True:
             try:
@@ -423,7 +425,7 @@ class RajaBooker:
                 #         continue
 
                 # url = f"https://hostservice.raja.ir/Api/ServiceProvider/TrainListEqWithCaptcha?q={self.api_q_param}"
-                url = await self._create_q()
+                url = self.decrypt_url
                 try:
                     async with httpx.AsyncClient(timeout=15) as client:
                         response = await client.get(url, headers=headers)
@@ -532,7 +534,7 @@ class RajaBooker:
                                     continue
 
                                 # کوپه دربست
-                                available_seats = train.get("Counting")
+                                available_seats = int(train.get("Counting"))
                                 if self.is_exclusive:
                                     if (
                                         self.coupe_filter == "four"
@@ -548,6 +550,11 @@ class RajaBooker:
                                         self.coupe_filter == "five"
                                         and available_seats < 5
                                     ):
+                                        continue
+                                    if (
+                                        self.coupe_filter == "all"
+                                        or self.coupe_filter is None
+                                    ) and available_seats < 4:
                                         continue
 
                                 matching_trains.append(train)
@@ -571,7 +578,7 @@ class RajaBooker:
                                     find_trains=selected_train,
                                 )
 
-                                # ⭐️ مرحله جدید: کلیک روی قطار در مرورگر
+                                # کلیک روی قطار در مرورگر
                                 success = await self._click_train_button(selected_train)
                                 if success:
                                     print(
@@ -623,59 +630,100 @@ class RajaBooker:
                 await asyncio.sleep(poll_interval)
 
     async def _click_train_button(self, train):
-        """پیدا کردن قطار در DOM و کلیک روی دکمه رزرو آن"""
-        try:
-            print("🔄 رفرش صفحه برای دیدن قطار...")
-            print(f"train number found {train}")
-            await self.page.reload(wait_until="networkidle")
+        """پیدا کردن قطار در DOM و کلیک روی دکمه رزرو آن (با حداکثر ۳ تلاش)"""
+        print(f"🔄 تلاش برای کلیک روی قطار {train.get('TrainNumber')}...")
 
-            # پیدا کردن کارت قطار بر اساس شماره قطار و نوع واگن
-            train_number = train["TrainNumber"]
-            wagon_name = train["WagonName"]
+        train_number = train["TrainNumber"]
+        wagon_name = train["WagonName"]
 
-            # جستجو برای کارتی که شامل شماره قطار و نام سالن باشد
-            card = self.page.locator(
-                f".train-result:has-text('{train_number}'):has-text('{wagon_name}')"
-            ).first
-            if await card.count() == 0:
-                print(f"⚠️ کارت قطار {train_number} در DOM پیدا نشد.")
-                return False
+        for attempt in range(1, 4):
+            try:
+                # در تلاش اول، صفحه را رفرش می‌کنیم. در تلاش‌های بعدی فقط اگر لازم بود.
+                if attempt == 1:
+                    print("🔄 رفرش صفحه برای دیدن قطار...")
+                    await self.page.reload(wait_until="networkidle")
 
-            # پیدا کردن دکمه رزرو درون کارت
-            book_btn = card.locator("button.lock-btn:has-text('رزرو بلیت')").first
-
-            if await book_btn.count() > 0 and await book_btn.is_enabled():
-                print(f"✅ کلیک روی دکمه رزرو برای قطار {train_number}...")
-                await book_btn.click()
-                await human_delay(default=0.1)
-                # ⭐️ صبر می‌کنیم تا دکمه "ادامه خرید" در صفحه ظاهر شود
-                print("منتظر ظاهر شدن دکمه ادامه خرید...")
-                continue_btn = self.page.locator(
-                    "button.btn-success:has-text('ادامه خرید')"
+                # جستجو برای کارت قطار
+                card = self.page.locator(
+                    f".train-result:has-text('{train_number}'):has-text('{wagon_name}')"
                 ).first
-                await continue_btn.click()
 
-                # منتظر تغییر URL می‌مانیم (چون رجا مستقیم به registerticket می‌رود)
-                try:
-                    # حداکثر 10 ثانیه صبر می‌کنیم تا URL تغییر کند
-                    await self.page.wait_for_url("**/registerticket**", timeout=10000)
-                    print("🎉 با موفقیت به صفحه ثبت‌نام (registerticket) منتقل شدیم!")
-                    return True
-                except Exception:
-                    # اگر URL عوض نشد، یعنی کلیک ناموفق بوده (صندلی پر شده)
+                # اگر کارت پیدا نشد، یک بار دیگر صبر می‌کنیم و رفرش می‌کنیم
+                if await card.count() == 0:
                     print(
-                        "⚠️ URL تغییر نکرد. احتمالاً صندلی توسط کاربر دیگری رزرو شده است."
+                        f"⚠️ کارت قطار {train_number} در DOM پیدا نشد (تلاش {attempt})."
                     )
-                    print("⚠️ بازگشت به رصد...")
-                    await human_delay(default=0.1)
-                    return False
-            else:
-                print(f"⚠️ دکمه رزرو برای قطار {train_number} غیرفعال است.")
-                return False
+                    if attempt < 3:
+                        print("⏳ صبر و رفرش مجدد...")
+                        await asyncio.sleep(1)
+                        await self.page.reload(wait_until="networkidle")
+                    continue  # برو به تلاش بعدی
 
-        except Exception as e:
-            print(f"خطا در کلیک روی دکمه رزرو: {e}")
-            return False
+                # پیدا کردن دکمه رزرو درون کارت
+                book_btn = card.locator("button.lock-btn:has-text('رزرو بلیت')").first
+
+                if await book_btn.count() > 0 and await book_btn.is_enabled():
+                    print(
+                        f"✅ کلیک روی دکمه رزرو برای قطار {train_number} (تلاش {attempt})..."
+                    )
+                    await book_btn.click()
+                    await human_delay(default=0.1)
+
+                    # صبر می‌کنیم تا دکمه "ادامه خرید" در صفحه ظاهر شود
+                    print("منتظر ظاهر شدن دکمه ادامه خرید...")
+                    continue_btn = self.page.locator(
+                        "button.btn-success:has-text('ادامه خرید')"
+                    ).first
+
+                    # بررسی می‌کنیم که آیا دکمه "ادامه خرید" وجود دارد
+                    if await continue_btn.count() > 0:
+                        await continue_btn.click()
+                    else:
+                        print("⚠️ دکمه ادامه خرید پیدا نشد. شاید مستقیم رفته باشیم.")
+
+                    # منتظر تغییر URL می‌مانیم
+                    try:
+                        await self.page.wait_for_url(
+                            "**/registerticket**", timeout=5000
+                        )
+                        print(
+                            "🎉 با موفقیت به صفحه ثبت‌نام (registerticket) منتقل شدیم!"
+                        )
+                        return True
+                    except Exception:
+                        print(f"⚠️ تلاش {attempt}: URL تغییر نکرد. صندلی پر شده یا خطا.")
+                        if attempt < 3:
+                            print("⏳ صبر کوتاه و تلاش مجدد...")
+                            await asyncio.sleep(0.5)
+                            # در تلاش‌های بعدی، اگر صفحه همان‌جا ماند، رفرش نمی‌کنیم
+                            # فقط یک بار دیگر دکمه را امتحان می‌کنیم (شاید خطای موقتی بوده)
+                            continue
+                        else:
+                            print("❌ هر ۳ تلاش ناموفق بود. بازگشت به رصد...")
+                            return False
+                else:
+                    print(
+                        f"⚠️ دکمه رزرو برای قطار {train_number} غیرفعال است (تلاش {attempt})."
+                    )
+                    if attempt < 3:
+                        await asyncio.sleep(1)
+                        await self.page.reload(wait_until="networkidle")
+                    continue
+
+            except Exception as e:
+                print(f"⚠️ خطا در تلاش {attempt}: {e}")
+                if attempt < 3:
+                    await asyncio.sleep(1)
+                    # در صورت خطای غیرمنتظره، رفرش می‌کنیم
+                    try:
+                        await self.page.reload(wait_until="networkidle")
+                    except:
+                        pass
+                else:
+                    print("❌ هر ۳ تلاش با خطا مواجه شد.")
+                    return False
+
+        return False
 
     async def _fill_passenger_details(self):
         await human_delay(default=0.1)
