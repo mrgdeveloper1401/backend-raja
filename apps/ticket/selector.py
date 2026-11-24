@@ -189,7 +189,7 @@ async def get_orders_detail_selector(order_id: int):
         "baby_number": res.reservation.baby_number,
         "passengers": passengers_list,
         "coupe_type": res.reservation.coupe_type,
-        "raja_account_id": res.reservation.raja_account_id
+        "raja_account_id": res.reservation.raja_account_id,
     }
 
 

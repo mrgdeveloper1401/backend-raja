@@ -85,13 +85,14 @@ class ReservationAdmin(admin.ModelAdmin):
 @admin.register(ReservationAttempt)
 class ReservationAttemptAdmin(admin.ModelAdmin):
     list_display = ("reservation_id", "id", "status", "created_at", "updated_at")
-    list_display_links = list_display
+    list_display_links = ("reservation_id", "id", "created_at", "updated_at")
     list_per_page = 20
     list_filter = ("created_at",)
     raw_id_fields = ("reservation",)
     formfield_overrides = {
         JSONField: {"widget": JSONEditorWidget},
     }
+    list_editable = ("status",)
 
 
 @admin.register(OrderPassenger)
