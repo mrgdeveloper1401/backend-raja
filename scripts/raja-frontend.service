@@ -6,9 +6,8 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/raja-reserv-train
-Environment=NODE_ENV=production
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
-ExecStart=/usr/bin/npm run start
+Environment=PATH=/root/.nvm/versions/node/v24.22.3/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/root/.nvm/versions/node/v24.22.3/bin/npm run start
 Restart=on-failure
 RestartSec=5
 
