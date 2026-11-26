@@ -1,18 +1,40 @@
 # apps/ticket/signals.py
+import jdatetime
 from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.shortcuts import get_object_or_404
 from fake_useragent import UserAgent
 
-from .models import Reservation, ReservationAttempt, ReservationStatus
+from core.utils.trains import sync_create_rj_search_trains
+from .models import Reservation, ReservationAttempt, ReservationStatus, Order
 from .tasks import process_reservation_task, login_user_task, check_raja_api_key
+from ..core.models import Station
 
 
 @receiver(post_save, sender=Reservation)
 def trigger_reservation_task(sender, instance, created, **kwargs):
     def _process_reservation_task():
         ua = UserAgent().chrome
-        ReservationAttempt.objects.create(reservation_id=instance.id, user_agent=ua)
+
+        origin_code = get_object_or_404(Station, name=instance.order.origin)
+        dest_code = get_object_or_404(Station, name=instance.order.destination)
+        len_passenger = instance.adult_number + instance.baby_number
+        d = jdatetime.date.fromgregorian(date=instance.order.travel_date).strftime(
+            "%Y-%m-%d"
+        )
+        ticket_type = instance.order.passenger_type
+        decrypt_url = sync_create_rj_search_trains(
+            origin=origin_code.code,
+            destination=dest_code.code,
+            passengers=len_passenger,
+            d=d,
+            ticket_type=ticket_type,
+        )
+
+        ReservationAttempt.objects.create(
+            reservation_id=instance.id, user_agent=ua, decrypt_url=decrypt_url
+        )
 
     if created:
         transaction.on_commit(_process_reservation_task)

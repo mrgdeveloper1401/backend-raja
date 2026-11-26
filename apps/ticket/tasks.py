@@ -14,6 +14,7 @@ from core.settings import (
     RAJA_SITE,
     RAJA_FRONT_API_KEY,
 )
+from core.utils.trains import create_rj_search_trains
 from .booker import RajaBooker
 from .models import Reservation, ReservationAttempt
 from ..core.models import RajaApiKey, RajaConfig
@@ -132,7 +133,7 @@ def run_attempt_task(attempt_id):
         destination=reservation.order.destination,
         travel_date=travel_date_jalali,
         passengers=passengers_data,
-        headless=False,  # در سرور True شود
+        headless=False,
         attempt_id=attempt.id,
         travel_phone=reservation.phone,
         is_want_and_return=reservation.order.trip_type == "outbound_and_return",
@@ -150,6 +151,7 @@ def run_attempt_task(attempt_id):
         access_token=raja_account.access_token,
         lg_uf=raja_account.user_information,
         departure_time_slots=reservation.departure_time_slots,
+        decrypt_url=attempt.decrypt_url,
     )
 
     return asyncio.run(booker.start())

@@ -230,6 +230,7 @@ class ReservationAttempt(TimestampMixin, SoftDeleteMixin):
     accept_data = models.JSONField(blank=True, null=True)
     matching_trains = models.JSONField(blank=True, null=True)
     find_trains = models.JSONField(blank=True, null=True)
+    decrypt_url = models.CharField(max_length=512, blank=True, null=True)
 
     class Meta:
         db_table = "reservation_attempts"

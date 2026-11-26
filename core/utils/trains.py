@@ -107,3 +107,23 @@ async def create_rj_search_trains(
     encrypt_q = encrypt(q, public_key)
     res = f"{RAJA_API}/TrainListEqWithCaptcha?q={encrypt_q}"
     return res
+
+
+# sync method
+def sync_get_public_key():
+    obj = RajaConfig.objects.last()
+    key = obj.raja_config.get("Key")
+    return key
+
+
+def sync_create_rj_search_trains(
+    origin, destination, d, passengers, ticket_type, include_sold_out=True, limit=40
+):
+    """use signal"""
+    a, b = origin, destination
+    day, shown, _ = _parse_date(d)
+    q = f"{a}-{b}-{ticket_type}-1-{day}-{day}-{passengers}-false-0-0-L1"
+    public_key = sync_get_public_key()
+    encrypt_q = encrypt(q, public_key)
+    res = f"{RAJA_API}/TrainListEqWithCaptcha?q={encrypt_q}"
+    return res

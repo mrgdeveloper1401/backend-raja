@@ -66,6 +66,7 @@ class RajaBooker:
         raja_api_key=None,
         access_token=None,
         lg_uf=None,
+        decrypt_url=None,
     ):
         self.account_id = account_id
         self.origin = origin
@@ -97,10 +98,10 @@ class RajaBooker:
         self.accept_data = None
         self.user_agent = user_agent
         self.raja_api_key = raja_api_key
-        self.selected_train = None  # ذخیره قطار انتخاب شده
+        self.selected_train = None
         self.origin_code = None
         self.destination_code = None
-        self.decrypt_url = None
+        self.decrypt_url = decrypt_url
         if self.raja_api_key is None:
             self.raja_api_key = RAJA_FRONT_API_KEY
 
@@ -189,7 +190,8 @@ class RajaBooker:
                 await self._set_local_storage()
 
                 # create q
-                await self._create_q()
+                if self.decrypt_url is None:
+                    await self._create_q()
 
                 print("fill params ...")
                 await self._fill_params()
@@ -636,7 +638,7 @@ class RajaBooker:
         train_number = train["TrainNumber"]
         wagon_name = train["WagonName"]
 
-        for attempt in range(1, 4):
+        for attempt in range(1, 3):
             try:
                 # در تلاش اول، صفحه را رفرش می‌کنیم. در تلاش‌های بعدی فقط اگر لازم بود.
                 if attempt == 1:
@@ -692,7 +694,7 @@ class RajaBooker:
                         return True
                     except Exception:
                         print(f"⚠️ تلاش {attempt}: URL تغییر نکرد. صندلی پر شده یا خطا.")
-                        if attempt < 3:
+                        if attempt < 2:
                             print("⏳ صبر کوتاه و تلاش مجدد...")
                             await asyncio.sleep(0.5)
                             # در تلاش‌های بعدی، اگر صفحه همان‌جا ماند، رفرش نمی‌کنیم
