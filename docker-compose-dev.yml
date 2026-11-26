@@ -43,7 +43,6 @@ services:
     container_name: bouncer
     restart: always
     image: docker.arvancloud.ir/edoburu/pgbouncer
-    env_file: env_folder/bouncer.env
     expose:
       - 6432
     ports:
