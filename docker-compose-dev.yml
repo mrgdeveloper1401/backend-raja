@@ -39,5 +39,18 @@ services:
       start_period: 10s
       timeout: 5s
 
+  bouncer:
+    container_name: bouncer
+    restart: always
+    image: docker.arvancloud.ir/edoburu/pgbouncer
+    env_file: env_folder/bouncer.env
+    expose:
+      - 6432
+    ports:
+      - "6432:6432"
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   postgres_data:
