@@ -97,7 +97,8 @@ DATABASES = {
     },
 }
 if USE_PG_BOUNCER:
-    DATABASES["OPTIONS"]["prepare_threshold"] = None
+    DATABASES["default"].setdefault("OPTIONS", {})["prepare_threshold"] = None
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
