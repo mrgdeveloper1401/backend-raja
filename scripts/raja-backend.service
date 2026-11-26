@@ -1,0 +1,15 @@
+[Unit]
+Description=Raja Django Bolt Backend
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/backend-raja
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/root/backend-raja/.venv/bin/python manage.py runbolt
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

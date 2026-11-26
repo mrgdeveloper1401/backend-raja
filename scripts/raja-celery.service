@@ -1,0 +1,19 @@
+[Unit]
+Description=Raja Celery Worker
+After=network.target redis-server.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/backend-raja
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:1
+ExecStart=/root/backend-raja/.venv/bin/celery -A core worker -l INFO
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

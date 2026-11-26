@@ -1,0 +1,16 @@
+[Unit]
+Description=Raja Frontend
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/raja-reserv-train
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
