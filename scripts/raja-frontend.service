@@ -6,8 +6,16 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/raja-reserv-train
-Environment=PATH=/root/.nvm/versions/node/v24.22.3/bin:/usr/local/bin:/usr/bin:/bin
+
+Environment="PATH=/root/.nvm/versions/node/v24.22.3/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="NODE_ENV=production"
+Environment="NEXT_PUBLIC_BASE_API_URL=https://api.reservticketticket.site/api/v1"
+Environment="NEXT_PUBLIC_URL=https://reservticketticket.site"
+
+ExecStartPre=/root/.nvm/versions/node/v24.22.3/bin/npm run build
 ExecStart=/root/.nvm/versions/node/v24.22.3/bin/npm run start
+
+TimeoutStartSec=10min
 Restart=on-failure
 RestartSec=5
 
