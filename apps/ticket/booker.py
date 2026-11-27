@@ -641,7 +641,7 @@ class RajaBooker:
             try:
                 # در تلاش اول، صفحه را رفرش می‌کنیم. در تلاش‌های بعدی فقط اگر لازم بود.
                 print("🔄 رفرش صفحه برای دیدن قطار...")
-                await self.page.reload(wait_until="load")
+                await self.page.reload(wait_until="networkidle")
 
                 # جستجو برای کارت قطار
                 card = self.page.locator(
