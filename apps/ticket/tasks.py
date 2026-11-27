@@ -201,9 +201,9 @@ def login_user_task(raja_account_id):
     account.expire_token = expires_in
     account.token_expires_at = received_at + timedelta(seconds=expires_in)
 
-    raja_api_key = RajaApiKey.objects.get(raja_account_id=raja_account_id)
+    raja_api_key = RAJA_FRONT_API_KEY
     user_info = get_information(
-        access_token=res["access_token"], raja_api_key=raja_api_key.api_key
+        access_token=res["access_token"], raja_api_key=raja_api_key
     )
     account.user_information = user_info
 

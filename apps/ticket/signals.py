@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from fake_useragent import UserAgent
 
 from core.utils.trains import sync_create_rj_search_trains
-from .models import Reservation, ReservationAttempt, ReservationStatus, Order
+from .models import Reservation, ReservationAttempt, ReservationStatus
 from .tasks import process_reservation_task, login_user_task, check_raja_api_key
 from ..core.models import Station
 
