@@ -1,4 +1,6 @@
 # apps/ticket/signals.py
+from functools import partial
+
 import jdatetime
 from django.db import transaction
 from django.db.models.signals import post_save, pre_save
@@ -12,35 +14,67 @@ from .tasks import process_reservation_task, login_user_task, check_raja_api_key
 from ..core.models import Station
 
 
-@receiver(post_save, sender=Reservation)
-def trigger_reservation_task(sender, instance, created, **kwargs):
-    def _process_reservation_task():
-        ua = UserAgent().chrome
+def _build_reservation_search_url(reservation, *, using):
+    order = reservation.order
+    stations = Station.objects.using(using)
 
-        origin_code = get_object_or_404(Station, name=instance.order.origin)
-        dest_code = get_object_or_404(Station, name=instance.order.destination)
-        len_passenger = instance.adult_number + instance.baby_number
-        d = jdatetime.date.fromgregorian(date=instance.order.travel_date).strftime(
-            "%Y-%m-%d"
-        )
-        ticket_type = instance.order.passenger_type
-        decrypt_url = sync_create_rj_search_trains(
-            origin=origin_code.code,
-            destination=dest_code.code,
-            passengers=len_passenger,
-            d=d,
-            ticket_type=ticket_type,
-        )
+    origin = stations.get(name=order.origin)
+    destination = stations.get(name=order.destination)
 
-        ReservationAttempt.objects.create(
-            reservation_id=instance.id, user_agent=ua, decrypt_url=decrypt_url
-        )
+    return sync_create_rj_search_trains(
+        origin=origin.code,
+        destination=destination.code,
+        passengers=reservation.adult_number + reservation.baby_number,
+        d=jdatetime.date.fromgregorian(date=order.travel_date).strftime("%Y-%m-%d"),
+        ticket_type=order.passenger_type,
+    )
 
-    if created:
-        transaction.on_commit(_process_reservation_task)
 
-    login_user_task.delay(instance.raja_account_id)
+def _sync_reservation_attempt(reservation_id, *, created, using):
+    reservation = (
+        Reservation.objects.using(using)
+        .select_related("order")
+        .filter(pk=reservation_id)
+        .first()
+    )
+    if reservation is None:
+        return
+
+    attempts = ReservationAttempt.objects.using(using).filter(
+        reservation_id=reservation_id,
+    )
+
+    # در ویرایش، اگر Attempt نداریم، درخواست ساخت URL هم لازم نیست.
+    if created or attempts.exists():
+        decrypt_url = _build_reservation_search_url(reservation, using=using)
+
+        if created:
+            attempts.create(
+                reservation_id=reservation_id,
+                user_agent=UserAgent().chrome,
+                decrypt_url=decrypt_url,
+            )
+        else:
+            attempts.update(decrypt_url=decrypt_url)
+
+    login_user_task.delay(reservation.raja_account_id)
     check_raja_api_key.delay()
+
+
+@receiver(post_save, sender=Reservation)
+def trigger_reservation_task(sender, instance, created, using, raw=False, **kwargs):
+    if raw:
+        return
+
+    transaction.on_commit(
+        partial(
+            _sync_reservation_attempt,
+            instance.pk,
+            created=created,
+            using=using,
+        ),
+        using=using,
+    )
 
 
 @receiver(pre_save, sender=ReservationAttempt)

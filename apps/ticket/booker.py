@@ -661,7 +661,9 @@ class RajaBooker:
 
                     # صبر می‌کنیم تا دکمه "ادامه خرید" در صفحه ظاهر شود
                     print("منتظر ظاهر شدن دکمه ادامه خرید...")
-                    continue_btn = self.page.get_by_role("button", name="ادامه خرید", exact=True)
+                    continue_btn = self.page.get_by_role(
+                        "button", name="ادامه خرید", exact=True
+                    )
 
                     # بررسی می‌کنیم که آیا دکمه "ادامه خرید" وجود دارد
                     if continue_btn:
