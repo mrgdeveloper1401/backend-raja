@@ -589,7 +589,6 @@ class RajaBooker:
                                     return  # خروج از حلقه رصد، ادامه در start()
                                 else:
                                     print("⚠️ کلیک ناموفق بود. بازگشت به رصد...")
-                                    await asyncio.sleep(1)
                                     continue
                             else:
                                 print(
@@ -638,28 +637,23 @@ class RajaBooker:
         train_number = train["TrainNumber"]
         wagon_name = train["WagonName"]
 
-        for attempt in range(1, 3):
+        for attempt in range(1):
             try:
                 # در تلاش اول، صفحه را رفرش می‌کنیم. در تلاش‌های بعدی فقط اگر لازم بود.
-                if attempt == 1:
-                    print("🔄 رفرش صفحه برای دیدن قطار...")
-                    await self.page.reload(wait_until="networkidle")
+                print("🔄 رفرش صفحه برای دیدن قطار...")
+                await self.page.reload(wait_until="domcontentloaded")
 
                 # جستجو برای کارت قطار
                 card = self.page.locator(
                     f".train-result:has-text('{train_number}'):has-text('{wagon_name}')"
                 ).first
 
-                # اگر کارت پیدا نشد، یک بار دیگر صبر می‌کنیم و رفرش می‌کنیم
+                # check cart
                 if await card.count() == 0:
-                    print(
-                        f"⚠️ کارت قطار {train_number} در DOM پیدا نشد (تلاش {attempt})."
-                    )
-                    if attempt < 3:
-                        print("⏳ صبر و رفرش مجدد...")
-                        await asyncio.sleep(1)
-                        await self.page.reload(wait_until="networkidle")
-                    continue  # برو به تلاش بعدی
+                    err =f"⚠️ کارت قطار {train_number} در DOM پیدا نشد (تلاش {attempt})."
+                    print(err)
+                    await self._update_status(status='monitoring', error_message=str(err))
+                    return False
 
                 # پیدا کردن دکمه رزرو درون کارت
                 book_btn = card.locator("button.lock-btn:has-text('رزرو بلیت')").first
@@ -669,7 +663,7 @@ class RajaBooker:
                         f"✅ کلیک روی دکمه رزرو برای قطار {train_number} (تلاش {attempt})..."
                     )
                     await book_btn.click()
-                    await human_delay(default=0.1)
+                    # await human_delay(default=0.1)
 
                     # صبر می‌کنیم تا دکمه "ادامه خرید" در صفحه ظاهر شود
                     print("منتظر ظاهر شدن دکمه ادامه خرید...")
@@ -692,38 +686,23 @@ class RajaBooker:
                             "🎉 با موفقیت به صفحه ثبت‌نام (registerticket) منتقل شدیم!"
                         )
                         return True
-                    except Exception:
+                    except Exception as e:
                         print(f"⚠️ تلاش {attempt}: URL تغییر نکرد. صندلی پر شده یا خطا.")
-                        if attempt < 2:
-                            print("⏳ صبر کوتاه و تلاش مجدد...")
-                            await asyncio.sleep(0.5)
-                            # در تلاش‌های بعدی، اگر صفحه همان‌جا ماند، رفرش نمی‌کنیم
-                            # فقط یک بار دیگر دکمه را امتحان می‌کنیم (شاید خطای موقتی بوده)
-                            continue
-                        else:
-                            print("❌ هر ۳ تلاش ناموفق بود. بازگشت به رصد...")
-                            return False
+                        print("❌ تلاش ناموفق بود. بازگشت به رصد...")
+                        await self._update_status(status='monitoring', error_message=str(e))
+                        return False
+
                 else:
                     print(
                         f"⚠️ دکمه رزرو برای قطار {train_number} غیرفعال است (تلاش {attempt})."
                     )
-                    if attempt < 3:
-                        await asyncio.sleep(1)
-                        await self.page.reload(wait_until="networkidle")
-                    continue
+                    return False
 
             except Exception as e:
                 print(f"⚠️ خطا در تلاش {attempt}: {e}")
-                if attempt < 3:
-                    await asyncio.sleep(1)
-                    # در صورت خطای غیرمنتظره، رفرش می‌کنیم
-                    try:
-                        await self.page.reload(wait_until="networkidle")
-                    except:
-                        pass
-                else:
-                    print("❌ هر ۳ تلاش با خطا مواجه شد.")
-                    return False
+                print("❌ تلاش با خطا مواجه شد.")
+                await self._update_status(status='monitoring', error_message=str(e))
+                return False
 
         return False
 
