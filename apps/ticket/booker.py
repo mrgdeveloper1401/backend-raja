@@ -173,7 +173,7 @@ class RajaBooker:
                 self.page = await self.context.new_page()
                 print("رفتن به صفحه اصلی رجا...")
                 await self.page.goto(
-                    "https://www.raja.ir/", wait_until="domcontentloaded"
+                    "https://www.raja.ir/", wait_until="load"
                 )
                 # await asyncio.sleep(2)
 
@@ -384,7 +384,7 @@ class RajaBooker:
             f"desctravel={desctravel}"
         )
         print("url", url)
-        await self.page.goto(url, wait_until="networkidle")
+        await self.page.goto(url, wait_until="load")
         await human_delay(default=0.1)
 
     async def _monitor_and_book(self):
@@ -641,7 +641,7 @@ class RajaBooker:
             try:
                 # در تلاش اول، صفحه را رفرش می‌کنیم. در تلاش‌های بعدی فقط اگر لازم بود.
                 print("🔄 رفرش صفحه برای دیدن قطار...")
-                await self.page.reload(wait_until="domcontentloaded")
+                await self.page.reload(wait_until="load")
 
                 # جستجو برای کارت قطار
                 card = self.page.locator(
