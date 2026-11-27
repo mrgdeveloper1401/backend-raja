@@ -5,7 +5,6 @@ import jdatetime
 from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from django.shortcuts import get_object_or_404
 from fake_useragent import UserAgent
 
 from core.utils.trains import sync_create_rj_search_trains
