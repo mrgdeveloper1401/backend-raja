@@ -63,7 +63,6 @@ class RajaBooker:
         adult=None,
         child=None,
         user_agent=None,
-        raja_api_key=None,
         access_token=None,
         lg_uf=None,
         decrypt_url=None,
@@ -97,13 +96,11 @@ class RajaBooker:
         self.data = None
         self.accept_data = None
         self.user_agent = user_agent
-        self.raja_api_key = raja_api_key
         self.selected_train = None
         self.origin_code = None
         self.destination_code = None
         self.decrypt_url = decrypt_url
-        if self.raja_api_key is None:
-            self.raja_api_key = RAJA_FRONT_API_KEY
+        self.raja_api_key = RAJA_FRONT_API_KEY
 
     async def _update_status(
         self,
@@ -172,9 +169,7 @@ class RajaBooker:
                 )
                 self.page = await self.context.new_page()
                 print("رفتن به صفحه اصلی رجا...")
-                await self.page.goto(
-                    "https://www.raja.ir/", wait_until="load"
-                )
+                await self.page.goto("https://www.raja.ir/", wait_until="load")
                 # await asyncio.sleep(2)
 
                 # self.page.on("response", self._capture_api_params)
@@ -188,10 +183,6 @@ class RajaBooker:
                 if not check:
                     await self._login()
                 await self._set_local_storage()
-
-                # create q
-                if self.decrypt_url is None:
-                    await self._create_q()
 
                 print("fill params ...")
                 await self._fill_params()
@@ -402,7 +393,6 @@ class RajaBooker:
             "Referer": RAJA_SITE,
         }
         poll_interval = 0.2
-        self.decrypt_url = await self._create_q()
 
         while True:
             try:
@@ -650,9 +640,13 @@ class RajaBooker:
 
                 # check cart
                 if await card.count() == 0:
-                    err =f"⚠️ کارت قطار {train_number} در DOM پیدا نشد (تلاش {attempt})."
+                    err = (
+                        f"⚠️ کارت قطار {train_number} در DOM پیدا نشد (تلاش {attempt})."
+                    )
                     print(err)
-                    await self._update_status(status='monitoring', error_message=str(err))
+                    await self._update_status(
+                        status="monitoring", error_message=str(err)
+                    )
                     return False
 
                 # پیدا کردن دکمه رزرو درون کارت
@@ -667,15 +661,20 @@ class RajaBooker:
 
                     # صبر می‌کنیم تا دکمه "ادامه خرید" در صفحه ظاهر شود
                     print("منتظر ظاهر شدن دکمه ادامه خرید...")
-                    continue_btn = self.page.locator(
+                    continue_btn = await self.page.locator(
                         "button.btn-success:has-text('ادامه خرید')"
                     ).first
 
                     # بررسی می‌کنیم که آیا دکمه "ادامه خرید" وجود دارد
-                    if await continue_btn.count() > 0:
+                    if continue_btn:
                         await continue_btn.click()
                     else:
-                        print("⚠️ دکمه ادامه خرید پیدا نشد. شاید مستقیم رفته باشیم.")
+                        err = "⚠️ دکمه ادامه خرید پیدا نشد. شاید مستقیم رفته باشیم."
+                        print(err)
+                        await self._update_status(
+                            status="monitoring", error_message=err
+                        )
+                        return False
 
                     # منتظر تغییر URL می‌مانیم
                     try:
@@ -689,19 +688,20 @@ class RajaBooker:
                     except Exception as e:
                         print(f"⚠️ تلاش {attempt}: URL تغییر نکرد. صندلی پر شده یا خطا.")
                         print("❌ تلاش ناموفق بود. بازگشت به رصد...")
-                        await self._update_status(status='monitoring', error_message=str(e))
+                        await self._update_status(
+                            status="monitoring", error_message=str(e)
+                        )
                         return False
 
                 else:
-                    print(
-                        f"⚠️ دکمه رزرو برای قطار {train_number} غیرفعال است (تلاش {attempt})."
-                    )
+                    err = f"⚠️ دکمه رزرو برای قطار {train_number} غیرفعال است (تلاش {attempt})."
+                    await self._update_status(status="monitoring", error_message=err)
                     return False
 
             except Exception as e:
                 print(f"⚠️ خطا در تلاش {attempt}: {e}")
                 print("❌ تلاش با خطا مواجه شد.")
-                await self._update_status(status='monitoring', error_message=str(e))
+                await self._update_status(status="monitoring", error_message=str(e))
                 return False
 
         return False
@@ -718,7 +718,6 @@ class RajaBooker:
             print("فرم مسافران با موفقیت لود شد.")
         except Exception as e:
             print(f"خطا در لود فرم مسافران {e}")
-            print("ادامه برنامه")
 
         await human_delay(default=0.1)
 

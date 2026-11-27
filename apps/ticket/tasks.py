@@ -14,10 +14,9 @@ from core.settings import (
     RAJA_SITE,
     RAJA_FRONT_API_KEY,
 )
-from core.utils.trains import create_rj_search_trains
 from .booker import RajaBooker
 from .models import Reservation, ReservationAttempt
-from ..core.models import RajaApiKey, RajaConfig
+from ..core.models import RajaConfig
 from ..user.models import RajaAccount
 
 
@@ -147,7 +146,6 @@ def run_attempt_task(attempt_id):
         adult=reservation.adult_number,
         child=reservation.baby_number,
         user_agent=attempt.user_agent,
-        raja_api_key=RAJA_FRONT_API_KEY,
         access_token=raja_account.access_token,
         lg_uf=raja_account.user_information,
         departure_time_slots=reservation.departure_time_slots,
@@ -201,9 +199,8 @@ def login_user_task(raja_account_id):
     account.expire_token = expires_in
     account.token_expires_at = received_at + timedelta(seconds=expires_in)
 
-    raja_api_key = RAJA_FRONT_API_KEY
     user_info = get_information(
-        access_token=res["access_token"], raja_api_key=raja_api_key
+        access_token=res["access_token"], raja_api_key=RAJA_FRONT_API_KEY
     )
     account.user_information = user_info
 
