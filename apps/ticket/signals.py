@@ -43,7 +43,6 @@ def _sync_reservation_attempt(reservation_id, *, created, using):
         reservation_id=reservation_id,
     )
 
-    # در ویرایش، اگر Attempt نداریم، درخواست ساخت URL هم لازم نیست.
     if created or attempts.exists():
         decrypt_url = _build_reservation_search_url(reservation, using=using)
 
