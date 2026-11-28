@@ -18,7 +18,6 @@ from pathlib import Path
 from decouple import config, Csv
 from kombu import Queue
 
-IS_WINDOWS = sys.platform.startswith("win")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -257,10 +256,8 @@ CELERY_TASK_QUEUES = (
     Queue("qu"),
 )
 
-if not IS_WINDOWS:
-    CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=5)
-else:
-    CELERY_WORKER_CONCURRENCY = 1
+CELERY_WORKER_CONCURRENCY = config("CELERY_WORKER_CONCURRENCY", cast=int, default=5)
+
 
 USE_CELERY_TASK_VIEW = config("USE_CELERY_TASK_VIEW", cast=bool, default=True)
 if USE_CELERY_TASK_VIEW:
@@ -270,15 +267,6 @@ if USE_CELERY_TASK_VIEW:
         "CELERY_RESULT_EXPIRES", cast=int, default=2592000
     )  # for 30 days
 
-
-# در فایل core/settings.py
-if IS_WINDOWS:
-    BOLT_API = [
-        "apps.core.api:api",  # مسیر فایل api.py در اپ core
-        "apps.user.api:api",  # مسیر فایل api.py در اپ user
-        "apps.ticket.api:api",  # مسیر فایل api.py در اپ ticket
-        # اگر اپلیکیشن دیگری هم api.py دارد، اینجا اضافه کنید
-    ]
 
 # config raja
 TOKEN_REFRESH_MARGIN = timedelta(seconds=300)
